@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+import math
 
 def custom_pooling2d(inputs, var_scope, strides = [1, 2, 2, 1]):
   in_height = inputs.get_shape().as_list()[1]
