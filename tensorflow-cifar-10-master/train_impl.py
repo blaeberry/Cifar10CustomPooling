@@ -4,7 +4,7 @@ from sklearn.metrics import confusion_matrix
 from time import time
 
 from include.data import get_data_set
-from include.model import model_impl
+from include.model_impl import model
 
 
 train_x, train_y, train_l = get_data_set()
