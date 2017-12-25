@@ -16,7 +16,7 @@ _IMG_SIZE = 32
 _NUM_CHANNELS = 3
 _BATCH_SIZE = 128
 _CLASS_SIZE = 10
-_ITERATION = 2600
+_ITERATION = 2500
 _SAVE_PATH = "./tensorboard/cifar-10-no-lrn/"
 
 
