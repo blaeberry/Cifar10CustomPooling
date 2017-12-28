@@ -32,13 +32,10 @@ def custom_pooling2d(inputs, var_scope, strides = [1, 2, 2, 1]):
 
   weights_shape = (1)
   with tf.variable_scope(var_scope):
-    max_weights = tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5))
-    avg_weights = tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5))
-    max_weights_clipped = tf.minimum(tf.maximum(max_weights, -1), 1)
-    avg_weights_clipped = tf.minimum(tf.maximum(avg_weights, -1), 1)
-    biases = tf.get_variable("biases", weights_shape, initializer=tf.constant_initializer(0.0))
-    biases_clipped = tf.minimum(tf.maximum(biases, -255), 255)
-  return (tf.multiply(max_inputs, max_weights_clipped) + tf.multiply(avg_inputs, avg_weights_clipped) + biases_clipped)
+    max_weights = tf.tanh(tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
+    avg_weights = tf.tanh(tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
+    biases = tf.tanh(tf.get_variable("biases", weights_shape, initializer=tf.constant_initializer(0.0)))*255
+  return (tf.multiply(max_inputs, max_weights) + tf.multiply(avg_inputs, avg_weights) + biases)
 
 def model():
     _IMAGE_SIZE = 32
