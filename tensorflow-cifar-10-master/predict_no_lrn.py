@@ -3,7 +3,7 @@ import tensorflow as tf
 from sklearn.metrics import confusion_matrix
 
 from include.data import get_data_set
-from include.model import model
+from include.model_no_lrn import model
 
 test_x, test_y, test_l = get_data_set("test", cifar=10)
 x, y, output, global_step, y_pred_cls = model()
