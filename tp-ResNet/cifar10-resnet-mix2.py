@@ -5,7 +5,7 @@
 
 import argparse
 import os
-
+import math
 
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
@@ -125,16 +125,16 @@ def custom_pooling2d(inputs, var_scope, strides = [1, 2, 2, 1], data_format='NCH
     in_depth = inputs.get_shape().as_list()[3]
     pool_height = pool_width = 3
 
-    out_height = math.ceil(float(in_height) / float(strides[1]))
-    out_width  = math.ceil(float(in_width) / float(strides[2]))
+    out_height = int(math.ceil(float(in_height) / float(strides[1])))
+    out_width  = int(math.ceil(float(in_width) / float(strides[2])))
     pad_along_height = ((out_height - 1) * strides[1] +
                       pool_height - in_height)
     pad_along_width = ((out_width - 1) * strides[2] +
                      pool_width - in_width)
-    pad_top = math.floor(pad_along_height / 2)
-    pad_left = math.floor(pad_along_width / 2)
-    pad_bottom = math.ceil(pad_along_height / 2)
-    pad_right = math.ceil(pad_along_width / 2)
+    pad_top = int(math.floor(pad_along_height / 2))
+    pad_left = int(math.floor(pad_along_width / 2))
+    pad_bottom = int(math.ceil(pad_along_height / 2))
+    pad_right = int(math.ceil(pad_along_width / 2))
 
     stride_height = strides[1]
     stride_width = strides[2]
@@ -142,17 +142,16 @@ def custom_pooling2d(inputs, var_scope, strides = [1, 2, 2, 1], data_format='NCH
     padded_inputs = tf.pad(inputs, ([0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0,0]))
 
     max_inputs = tf.layers.max_pooling2d(
-        inputs=padded_inputs, pool_size=3, strides=2, padding='VALID', data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+        inputs=padded_inputs, pool_size=3, strides=2, padding='SAME', data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
 
     avg_inputs = tf.layers.average_pooling2d(
-        inputs=padded_inputs, pool_size=3, strides=2, padding='VALID', data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+        inputs=padded_inputs, pool_size=3, strides=2, padding='SAME', data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
 
     weights_shape = (1)
     with tf.variable_scope(var_scope):
         max_weights = tf.tanh(tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
         avg_weights = tf.tanh(tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
     return (tf.multiply(max_inputs, max_weights) + tf.multiply(avg_inputs, avg_weights))
-
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
@@ -204,8 +203,9 @@ if __name__ == '__main__':
             ScheduledHyperParamSetter('learning_rate',
                                       [(1, 0.1), (82, 0.01), (123, 0.001), (300, 0.0002)])
         ],
-        max_epoch=400,
+        max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
+

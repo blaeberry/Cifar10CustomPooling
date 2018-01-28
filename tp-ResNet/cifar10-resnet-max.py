@@ -56,23 +56,25 @@ class Model(ModelDesc):
 
             if increase_dim:
                 out_channel = in_channel * 2
-                stride1 = 2
+            #     stride1 = 2
             else:
                 out_channel = in_channel
-                stride1 = 1
+
+            stride1 = 1
 
             with tf.variable_scope(name):
+                if increase_dim:
+                    l = MaxPooling('pool', l, 2)
                 b1 = l if first else BNReLU(l)
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
-                    l = AvgPooling('pool', l, 2)
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
 
                 l = c2 + l
                 return l
 
-        with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
+        with argscope([Conv2D, MaxPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
             l = Conv2D('conv0', image, 16, nl=BNReLU)
@@ -168,7 +170,7 @@ if __name__ == '__main__':
             ScheduledHyperParamSetter('learning_rate',
                                       [(1, 0.1), (82, 0.01), (123, 0.001), (300, 0.0002)])
         ],
-        max_epoch=160,
+        max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
     )
     nr_gpu = max(get_nr_gpu(), 1)

@@ -170,7 +170,7 @@ if __name__ == '__main__':
             ScheduledHyperParamSetter('learning_rate',
                                       [(1, 0.1), (82, 0.01), (123, 0.001), (300, 0.0002)])
         ],
-        max_epoch=400,
+        max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
