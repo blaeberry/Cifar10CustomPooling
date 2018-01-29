@@ -52,13 +52,13 @@ class Model(ModelDesc):
 
         with argscope([Conv2D, FullyConnected], nl=tf.nn.relu):
             l = Conv2D('conv1', image, out_channel=64, kernel_shape=5)
-            l = tf.nn.lrn(l, 3, bias=1.0, alpha=2e-5, beta=0.75, name='norm1')
+        #    l = tf.nn.lrn(l, 3, bias=1.0, alpha=2e-5, beta=0.75, name='norm1')
             l = MaxPooling('pool1', l, 3, stride=2, padding='VALID')
 	#    l = Dropout(l)
 	#    l = tf.nn.dropout(l, 0.5)
 
             l = Conv2D('conv2', l, out_channel=64, kernel_shape=5)
-            l = tf.nn.lrn(l, 3, bias=1.0, alpha=2e-5, beta=0.75, name='norm2')
+         #   l = tf.nn.lrn(l, 3, bias=1.0, alpha=2e-5, beta=0.75, name='norm2')
             l = MaxPooling('pool2', l, 3, stride=2, padding='VALID')
 	 #   l = Dropout(l)
 	 #   l = tf.nn.dropout(l, 0.5)
