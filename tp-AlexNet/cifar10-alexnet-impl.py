@@ -53,13 +53,13 @@ class Model(ModelDesc):
         with argscope([Conv2D, FullyConnected], nl=tf.nn.relu):
             l = Conv2D('conv1', image, out_channel=64, kernel_shape=5)
             l = tf.nn.lrn(l, 3, bias=1.0, alpha=2e-5, beta=0.75, name='norm1')
-            l = MaxPooling('pool1', l, 3, stride=2, padding='VALID')
+            l = custom_pooling2d(l, 'pool1', 'VALID')
     #    l = Dropout(l)
     #    l = tf.nn.dropout(l, 0.5)
 
             l = Conv2D('conv2', l, out_channel=64, kernel_shape=5)
             l = tf.nn.lrn(l, 3, bias=1.0, alpha=2e-5, beta=0.75, name='norm2')
-            l = MaxPooling('pool2', l, 3, stride=2, padding='VALID')
+            l = custom_pooling2d(l, 'pool2', 'VALID')
      #   l = Dropout(l)
      #   l = tf.nn.dropout(l, 0.5)
             
@@ -89,6 +89,18 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
+def custom_pooling2d(inputs, var_scope, padding, ps=3, strides=[1, 2, 2, 1]):
+    max_inputs = tf.layers.max_pooling2d(
+        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding)
+
+    avg_inputs = tf.layers.average_pooling2d(
+        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding)
+
+    weights_shape = (1)
+    with tf.variable_scope(var_scope):
+        max_weights = tf.tanh(tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
+        avg_weights = tf.tanh(tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
+    return (tf.multiply(max_inputs, max_weights) + tf.multiply(avg_inputs, avg_weights))
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
