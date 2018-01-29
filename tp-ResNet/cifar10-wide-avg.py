@@ -5,7 +5,7 @@
 
 import argparse
 import os
-import math
+
 
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
@@ -59,21 +59,25 @@ class Model(ModelDesc):
             #     stride1 = 2
             else:
                 out_channel = in_channel
+            
+            if first:
+                out_channel = out_channel * 8
 
             stride1 = 1
 
             with tf.variable_scope(name):
                 if increase_dim:
-                  l = custom_pooling2d(l, 'valid', padding = 'VALID')
+                    l = AvgPooling('pool', l, 2)
                 b1 = l if first else BNReLU(l)
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
+
                 l = c2 + l
                 return l
 
-        with argscope([Conv2D, GlobalAvgPooling, BatchNorm], data_format='NCHW'), \
+        with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
             l = Conv2D('conv0', image, 16, nl=BNReLU)
@@ -93,7 +97,6 @@ class Model(ModelDesc):
             l = BNReLU('bnlast', l)
             # 8,c=64
             l = GlobalAvgPooling('gap', l)
-        #l = custom_pooling2d(l, 'gap', strides=[1, 8, 8, 1], padding='VALID')
 
         logits = FullyConnected('linear', l, out_dim=10, nl=tf.identity)
         tf.nn.softmax(logits, name='output')
@@ -106,8 +109,8 @@ class Model(ModelDesc):
         add_moving_summary(tf.reduce_mean(wrong, name='train_error'))
 
         # weight decay on all W of fc layers
-        wd_w = tf.train.exponential_decay(0.0002, get_global_step_var(),
-                                          480000, 0.2, True)
+        wd_w = tf.train.exponential_decay(0.0005, get_global_step_var(),
+                                          10000, 0.75, True)
         wd_cost = tf.multiply(wd_w, regularize_cost('.*/W', tf.nn.l2_loss), name='wd_cost')
         add_moving_summary(cost, wd_cost)
 
@@ -119,22 +122,6 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_format='NCHW'):
-    if strides[1] == 8:
-        ps = 7
-    else:
-        ps = 3
-    max_inputs = tf.layers.max_pooling2d(
-        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-
-    avg_inputs = tf.layers.average_pooling2d(
-        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-
-    weights_shape = (1)
-    with tf.variable_scope(var_scope):
-        max_weights = tf.tanh(tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
-        avg_weights = tf.tanh(tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
-    return (tf.multiply(max_inputs, max_weights) + tf.multiply(avg_inputs, avg_weights))
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
@@ -157,12 +144,13 @@ def get_data(train_or_test):
         ds = PrefetchData(ds, 3, 2)
     return ds
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('-n', '--num_units',
                         help='number of units in each stage',
-                        type=int, default=18)
+                        type=int, default=5)
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
     NUM_UNITS = args.num_units
@@ -183,11 +171,10 @@ if __name__ == '__main__':
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
-                                      [(1, 0.1), (82, 0.01), (123, 0.001), (300, 0.0002)])
+                                      [(60, 0.1), (120, 0.01), (300, 0.001)])
         ],
         max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
-
