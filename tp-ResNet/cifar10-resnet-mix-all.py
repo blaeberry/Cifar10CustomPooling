@@ -64,17 +64,16 @@ class Model(ModelDesc):
 
             with tf.variable_scope(name):
                 if increase_dim:
-                    l = custom_pooling2d(l, name)
-                b1 = l if first else BNReLU(l)
+                  l = custom_pooling2d(l, 'valid', padding = 'VALID')
+		b1 = l if first else BNReLU(l)
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
-                if increase_dim:
+		if increase_dim:
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
-
                 l = c2 + l
                 return l
 
-        with argscope([Conv2D, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
+        with argscope([Conv2D, GlobalAvgPooling, BatchNorm], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
             l = Conv2D('conv0', image, 16, nl=BNReLU)
@@ -93,8 +92,8 @@ class Model(ModelDesc):
                 l = residual('res3.' + str(k), l)
             l = BNReLU('bnlast', l)
             # 8,c=64
-            #l = GlobalAvgPooling('gap', l)
-	    l = custom_pooling2d(l, 'gap', [1, 8, 8, 1])
+            l = GlobalAvgPooling('gap', l)
+	    #l = custom_pooling2d(l, 'gap', strides=[1, 8, 8, 1], padding='VALID')
 
         logits = FullyConnected('linear', l, out_dim=10, nl=tf.identity)
         tf.nn.softmax(logits, name='output')
@@ -120,40 +119,21 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(inputs, var_scope, strides = [1, 2, 2, 1], data_format='NCHW'):
-    in_height = inputs.get_shape().as_list()[1]
-    in_width = inputs.get_shape().as_list()[2]
-    in_depth = inputs.get_shape().as_list()[3]
-    pool_height = pool_width = 3
+def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_format='NCHW'):
     if strides[1] == 8:
-	pool_height = pool_width = 8
-
-    out_height = int(math.ceil(float(in_height) / float(strides[1])))
-    out_width  = int(math.ceil(float(in_width) / float(strides[2])))
-    pad_along_height = ((out_height - 1) * strides[1] +
-                      pool_height - in_height)
-    pad_along_width = ((out_width - 1) * strides[2] +
-                     pool_width - in_width)
-    pad_top = int(math.floor(pad_along_height / 2))
-    pad_left = int(math.floor(pad_along_width / 2))
-    pad_bottom = int(math.ceil(pad_along_height / 2))
-    pad_right = int(math.ceil(pad_along_width / 2))
-
-    stride_height = strides[1]
-    stride_width = strides[2]
-
-    padded_inputs = tf.pad(inputs, ([0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0,0]))
-
+	ps = 7
+    else:
+	ps = 3
     max_inputs = tf.layers.max_pooling2d(
-        inputs=padded_inputs, pool_size=3, strides=2, padding='SAME', data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
 
     avg_inputs = tf.layers.average_pooling2d(
-        inputs=padded_inputs, pool_size=3, strides=2, padding='SAME', data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
 
     weights_shape = (1)
     with tf.variable_scope(var_scope):
-        max_weights = tf.tanh(tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
-        avg_weights = tf.tanh(tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
+        max_weights = tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5))
+        avg_weights = tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5))
     return (tf.multiply(max_inputs, max_weights) + tf.multiply(avg_inputs, avg_weights))
 
 def get_data(train_or_test):
@@ -176,7 +156,6 @@ def get_data(train_or_test):
     if isTrain:
         ds = PrefetchData(ds, 3, 2)
     return ds
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
