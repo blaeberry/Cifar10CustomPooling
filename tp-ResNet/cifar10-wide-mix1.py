@@ -56,23 +56,25 @@ class Model(ModelDesc):
 
             if increase_dim:
                 out_channel = in_channel * 2
-                stride1 = 2
+            #     stride1 = 2
             else:
                 out_channel = in_channel
-                stride1 = 1
-
+            
             if first:
                 out_channel = out_channel * 8
 
+            stride1 = 1
+
             with tf.variable_scope(name):
+                if increase_dim:
+                    l = custom_pooling2d(l, 'valid', padding = 'VALID')
                 b1 = l if first else BNReLU(l)
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
+                if increase_dim:
+                    l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
                 if first:
                     l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
-                if increase_dim:
-                    l = AvgPooling('pool', l, 2)
-                    l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
 
                 l = c2 + l
                 return l
@@ -122,6 +124,24 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
+def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_format='NCHW'):
+    #if strides[1] == 8:
+    #    ps = 7
+    #else:
+    ps = 3
+    max_inputs = tf.layers.max_pooling2d(
+        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+
+    avg_inputs = tf.layers.average_pooling2d(
+        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+
+    weights_shape = (1)
+    with tf.variable_scope(var_scope):
+        ratio_weight = tf.get_variable("ratio_weight", weights_shape, initializer=tf.constant_initializer(0.5))
+    max_weight = 0.5 + ratio_weight * 1.5
+    avg_weight = 0.5 - ratio_weight * 1.5
+    return (tf.multiply(max_inputs, max_weight) + tf.multiply(avg_inputs, avg_weight))
+
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
@@ -150,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('-n', '--num_units',
                         help='number of units in each stage',
-                        type=int, default=4)
+                        type=int, default=5)
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
     NUM_UNITS = args.num_units
@@ -167,7 +187,7 @@ if __name__ == '__main__':
         model=Model(n=NUM_UNITS),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(),
+            ModelSaver(max_to_keep = 2, keep_checkpoint_every_n_hours = 1.0),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',

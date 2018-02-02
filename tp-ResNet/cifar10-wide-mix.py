@@ -61,7 +61,7 @@ class Model(ModelDesc):
                 out_channel = in_channel
             
             if first:
-                out_channel = out_channel * 8
+                out_channel = out_channel * 4
 
             stride1 = 1
 
@@ -73,6 +73,8 @@ class Model(ModelDesc):
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
+                if first:
+                    l = tf.pad(l, [[0, 0], [int(in_channel*1.5), int(in_channel*1.5)], [0, 0], [0, 0]])
 
                 l = c2 + l
                 return l
@@ -167,7 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('-n', '--num_units',
                         help='number of units in each stage',
-                        type=int, default=5)
+                        type=int, default=3)
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
     NUM_UNITS = args.num_units
@@ -188,7 +190,7 @@ if __name__ == '__main__':
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
-                                      [(60, 0.1), (120, 0.01), (300, 0.001)])
+                                      [(1, 0.1), (60, 0.01), (120, 0.001)])
         ],
         max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
