@@ -61,7 +61,7 @@ class Model(ModelDesc):
                 out_channel = in_channel
             
             if first:
-                out_channel = out_channel * 4
+                out_channel = out_channel * 8
 
             stride1 = 1
 
@@ -74,7 +74,7 @@ class Model(ModelDesc):
                 if increase_dim:
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
                 if first:
-                    l = tf.pad(l, [[0, 0], [int(in_channel*1.5), int(in_channel*1.5)], [0, 0], [0, 0]])
+                    l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
 
                 l = c2 + l
                 return l
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('-n', '--num_units',
                         help='number of units in each stage',
-                        type=int, default=3)
+                        type=int, default=5)
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
     NUM_UNITS = args.num_units
@@ -186,7 +186,7 @@ if __name__ == '__main__':
         model=Model(n=NUM_UNITS),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(),
+            ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',

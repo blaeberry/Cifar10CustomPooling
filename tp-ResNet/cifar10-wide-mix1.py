@@ -67,7 +67,7 @@ class Model(ModelDesc):
 
             with tf.variable_scope(name):
                 if increase_dim:
-                    l = custom_pooling2d(l, 'valid', padding = 'VALID')
+                    l = custom_pooling2d(l, 'pools', padding = 'VALID')
                 b1 = l if first else BNReLU(l)
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
@@ -128,13 +128,13 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_fo
     #if strides[1] == 8:
     #    ps = 7
     #else:
-    ps = 3
-    max_inputs = tf.layers.max_pooling2d(
-        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-
-    avg_inputs = tf.layers.average_pooling2d(
-        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-
+    # ps = 3
+    # max_inputs = tf.layers.max_pooling2d(
+    #     inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+    max_inputs = MaxPooling('pool_max', inputs, 2)
+    #avg_inputs = tf.layers.average_pooling2d(
+    #    inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+    avg_inputs = AvgPooling('pool_avg', inputs, 2)
     weights_shape = (1)
     with tf.variable_scope(var_scope):
         ratio_weight = tf.get_variable("ratio_weight", weights_shape, initializer=tf.constant_initializer(0.5))
@@ -187,11 +187,12 @@ if __name__ == '__main__':
         model=Model(n=NUM_UNITS),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(max_to_keep = 2, keep_checkpoint_every_n_hours = 1.0),
+            ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
-                                      [(1, 0.1), (60, 0.01), (120, 0.001)])
+                                      [(1, 0.1), (60, 0.01), (120, 0.001)]),
+            ScalarPrinter(whitelist=[r".*pools.*"])
         ],
         max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
