@@ -6,7 +6,6 @@
 import argparse
 import os
 
-
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
 from tensorpack.utils.gpu import get_nr_gpu
@@ -67,7 +66,7 @@ class Model(ModelDesc):
 
             with tf.variable_scope(name):
                 if increase_dim:
-                    l = custom_pooling2d(l, 'valid', padding = 'VALID')
+                    l = custom_pooling2d(l, 'pools', padding = 'VALID')
                 b1 = l if first else BNReLU(l)
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
@@ -79,7 +78,7 @@ class Model(ModelDesc):
                 l = c2 + l
                 return l
 
-        with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
+        with argscope([Conv2D, AvgPooling, MaxPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
             l = Conv2D('conv0', image, 16, nl=BNReLU)
@@ -125,21 +124,24 @@ class Model(ModelDesc):
         return opt
 
 def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_format='NCHW'):
-    if strides[1] == 8:
-        ps = 7
-    else:
-        ps = 3
-    max_inputs = tf.layers.max_pooling2d(
-        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-
-    avg_inputs = tf.layers.average_pooling2d(
-        inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-
+    #if strides[1] == 8:
+    #    ps = 7
+    #else:
+    # ps = 3
+    # max_inputs = tf.layers.max_pooling2d(
+    #     inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+    max_inputs = MaxPooling('pool_max', inputs, 2)
+    #avg_inputs = tf.layers.average_pooling2d(
+    #    inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+    avg_inputs = AvgPooling('pool_avg', inputs, 2)
     weights_shape = (1)
     with tf.variable_scope(var_scope):
-        max_weights = tf.tanh(tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
-        avg_weights = tf.tanh(tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5)))
-    return (tf.multiply(max_inputs, max_weights) + tf.multiply(avg_inputs, avg_weights))
+        max_weight = tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5))
+        avg_weight = tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5))
+    #    ratio_weight = tf.get_variable("ratio_weight", weights_shape, initializer=tf.constant_initializer(0.5))
+    #max_weight = 0.5 + ratio_weight * 1.5
+    #avg_weiht = 0.5 - ratio_weight * 1.5
+    return (tf.multiply(max_inputs, max_weight) + tf.multiply(avg_inputs, avg_weight))
 
 
 def get_data(train_or_test):
@@ -190,7 +192,7 @@ if __name__ == '__main__':
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
-                                      [(1, 0.1), (60, 0.01), (120, 0.001)])
+                                      [(1, 0.1), (60, 0.01), (120, 0.001)])#, ScalarPrinter(whitelist=[".*pools.*"])
         ],
         max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None

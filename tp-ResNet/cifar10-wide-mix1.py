@@ -6,7 +6,6 @@
 import argparse
 import os
 
-
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
 from tensorpack.utils.gpu import get_nr_gpu
@@ -79,7 +78,7 @@ class Model(ModelDesc):
                 l = c2 + l
                 return l
 
-        with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
+        with argscope([Conv2D, AvgPooling, MaxPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
             l = Conv2D('conv0', image, 16, nl=BNReLU)
@@ -191,8 +190,7 @@ if __name__ == '__main__':
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
-                                      [(1, 0.1), (60, 0.01), (120, 0.001)]),
-            ScalarPrinter(whitelist=[r".*pools.*"])
+                                      [(1, 0.1), (60, 0.01), (120, 0.001)])#, ScalarPrinter(whitelist=[".*pools.*"])
         ],
         max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
