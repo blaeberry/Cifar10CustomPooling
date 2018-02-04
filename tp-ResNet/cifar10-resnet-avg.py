@@ -6,7 +6,6 @@
 import argparse
 import os
 
-
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
 from tensorpack.utils.gpu import get_nr_gpu
@@ -70,11 +69,10 @@ class Model(ModelDesc):
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
-
                 l = c2 + l
                 return l
 
-        with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
+        with argscope([Conv2D, AvgPooling, MaxPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
             l = Conv2D('conv0', image, 16, nl=BNReLU)
@@ -119,7 +117,6 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
     ds = dataset.Cifar10(train_or_test)
@@ -147,7 +144,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('-n', '--num_units',
                         help='number of units in each stage',
-                        type=int, default=18)
+                        type=int, default=25)
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
     NUM_UNITS = args.num_units
@@ -164,7 +161,7 @@ if __name__ == '__main__':
         model=Model(n=NUM_UNITS),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(),
+            ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
