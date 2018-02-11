@@ -65,10 +65,13 @@ class Model(ModelDesc):
             stride1 = 1
 
             with tf.variable_scope(name):
-                if increase_dim:
-                    l = custom_pooling2d(l, 'pools', padding = 'VALID')
                 b1 = l if first else BNReLU(l)
-                c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
+		if increase_dim:
+                    with tf.variable_scope('pools') as scope:
+                        l = custom_pooling2d(l, 'pools', padding = 'VALID')
+                        scope.reuse_variables() 
+                        b1 = custom_pooling2d(b1, 'pools', padding = 'VALID')
+		c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
@@ -124,17 +127,21 @@ class Model(ModelDesc):
         return opt
 
 def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_format='NCHW'):
-    # max_inputs = MaxPooling('pool_max', inputs, 2)
-    patches = tf.extract_image_patches(inputs, [1, 3, 3, 1], strides, rates = [1,1,1,1], padding, 'patches')
-    print(shape(patches))
-    # avg_inputs = AvgPooling('pool_avg', inputs, 2)
-    weights_shape = (3,3)
-    with tf.variable_scope(var_scope):
-        max_w = tf.get_variable("max_w", weights_shape)
-        max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
-        avg_w = tf.get_variable("avg_w", weights_shape)
-        avg_b= tf.get_variable("avg_b", (1), initializer=tf.constant_initializer(0.5))
-    return (tf.multiply(max_inputs, max_b) + tf.multiply(avg_inputs, avg_b))
+    #if strides[1] == 8:
+    #    ps = 7
+    #else:
+    # ps = 3
+    # max_inputs = tf.layers.max_pooling2d(
+    #     inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+    max_inputs = MaxPooling('pool_max', inputs, 2)
+    #avg_inputs = tf.layers.average_pooling2d(
+    #    inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
+    avg_inputs = AvgPooling('pool_avg', inputs, 2)
+    weights_shape = (1)
+    ratio_weight = tf.get_variable("ratio_weight", weights_shape, initializer=tf.constant_initializer(0.5))
+    max_weight = 0.5 + ratio_weight * 1.5
+    avg_weight = 0.5 - ratio_weight * 1.5
+    return (tf.multiply(max_inputs, max_weight) + tf.multiply(avg_inputs, avg_weight))
 
 
 def get_data(train_or_test):
