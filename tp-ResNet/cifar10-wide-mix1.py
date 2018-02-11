@@ -65,9 +65,12 @@ class Model(ModelDesc):
             stride1 = 1
 
             with tf.variable_scope(name):
-                if increase_dim:
-                    l = custom_pooling2d(l, 'pools', padding = 'VALID')
                 b1 = l if first else BNReLU(l)
+                if increase_dim:
+                    with tf.variable_scope('pools') as scope:
+                        l = custom_pooling2d(l, 'pools', padding = 'VALID')
+                        scope.reuse_variables() 
+                        b1 = custom_pooling2d(b1, 'pools', padding = 'VALID')
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
@@ -135,8 +138,7 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_fo
     #    inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
     avg_inputs = AvgPooling('pool_avg', inputs, 2)
     weights_shape = (1)
-    with tf.variable_scope(var_scope):
-        ratio_weight = tf.get_variable("ratio_weight", weights_shape, initializer=tf.constant_initializer(0.5))
+    ratio_weight = tf.get_variable("ratio_weight", weights_shape, initializer=tf.constant_initializer(0.5))
     max_weight = 0.5 + ratio_weight * 1.5
     avg_weight = 0.5 - ratio_weight * 1.5
     return (tf.multiply(max_inputs, max_weight) + tf.multiply(avg_inputs, avg_weight))

@@ -6,6 +6,7 @@
 import argparse
 import os
 
+
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
 from tensorpack.utils.gpu import get_nr_gpu
@@ -58,17 +59,23 @@ class Model(ModelDesc):
             #     stride1 = 2
             else:
                 out_channel = in_channel
+            
+            if first:
+                out_channel = out_channel * 8
 
             stride1 = 1
 
             with tf.variable_scope(name):
                 if increase_dim:
-                    l = custom_pooling2d(l, 'pools', padding = 'VALID')
+                    l = MaxPooling('pool', l, 2)
                 b1 = l if first else BNReLU(l)
                 c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
+                if first:
+                    l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
+
                 l = c2 + l
                 return l
 
@@ -104,8 +111,8 @@ class Model(ModelDesc):
         add_moving_summary(tf.reduce_mean(wrong, name='train_error'))
 
         # weight decay on all W of fc layers
-        wd_w = tf.train.exponential_decay(0.0002, get_global_step_var(),
-                                          480000, 0.2, True)
+        wd_w = tf.train.exponential_decay(0.0005, get_global_step_var(),
+                                          10000, 0.75, True)
         wd_cost = tf.multiply(wd_w, regularize_cost('.*/W', tf.nn.l2_loss), name='wd_cost')
         add_moving_summary(cost, wd_cost)
 
@@ -116,26 +123,6 @@ class Model(ModelDesc):
         lr = tf.get_variable('learning_rate', initializer=0.01, trainable=False)
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
-
-def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_format='NCHW'):
-    #if strides[1] == 8:
-    #    ps = 7
-    #else:
-    # ps = 3
-    # max_inputs = tf.layers.max_pooling2d(
-    #     inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-    max_inputs = MaxPooling('pool_max', inputs, 2)
-    #avg_inputs = tf.layers.average_pooling2d(
-    #    inputs=inputs, pool_size=ps, strides=strides[1], padding=padding, data_format = 'channels_last' if data_format == 'NHWC' else 'channels_first')
-    avg_inputs = AvgPooling('pool_avg', inputs, 2)
-    weights_shape = (1)
-    with tf.variable_scope(var_scope):
-        max_weight = tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5))
-        avg_weight = tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5))
-    #    ratio_weight = tf.get_variable("ratio_weight", weights_shape, initializer=tf.constant_initializer(0.5))
-    #max_weight = 0.5 + ratio_weight * 1.5
-    #avg_weiht = 0.5 - ratio_weight * 1.5
-    return (tf.multiply(max_inputs, max_weight) + tf.multiply(avg_inputs, avg_weight))
 
 
 def get_data(train_or_test):
@@ -165,7 +152,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('-n', '--num_units',
                         help='number of units in each stage',
-                        type=int, default=25)
+                        type=int, default=5)
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
     NUM_UNITS = args.num_units
@@ -186,9 +173,9 @@ if __name__ == '__main__':
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
-                                      [(1, 0.1), (82, 0.01), (123, 0.001), (300, 0.0002)])
+                                      [(1, 0.1), (60, 0.01), (120, 0.001)])
         ],
-        max_epoch=160,
+        max_epoch=150,
         session_init=SaverRestore(args.load) if args.load else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
