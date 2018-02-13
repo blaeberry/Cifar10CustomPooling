@@ -129,13 +129,13 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1]):
 #    print("input\n")
 #    print(inputs.get_shape())
     inputs_nhwc = tf.transpose(inputs, [0, 2, 3, 1])
-    patches = tf.extract_image_patches(inputs_nhwc, [1, 3, 3, 1], strides, [1,1,1,1], 'SAME', name = 'patches')
+    patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
     #patches = tf.transpose(patches, [0, 3, 1, 2])
     pdims = patches.get_shape().as_list()
     halved = pdims[2]
 #    print("after input\n")
 #    print(patches.get_shape())
-    weights_shape = (9)
+    weights_shape = (4)
     patches = tf.reshape(patches, [BATCH_SIZE, pdims[1], pdims[2], inputs.get_shape().as_list()[1], weights_shape]) 
     patches = tf.transpose(patches, [0, 3, 1, 2, 4])
     with tf.variable_scope(var_scope):
@@ -148,7 +148,7 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1]):
         avg_w = tf.reduce_sum(tf.multiply(avg_w, patches), 4)
         avg_b = tf.get_variable("avg_b", (1), initializer=tf.constant_initializer(0.5))
     outputs = tf.multiply(max_inputs, max_w + max_b) + tf.multiply(avg_inputs, avg_w + avg_b)
-    return (tf.multiply(max_inputs, max_b) + tf.multiply(avg_inputs, avg_b))
+    return outputs
 
 
 def get_data(train_or_test):

@@ -128,7 +128,7 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2], data_forma
 
     #we want to do 1 channel at a time, so we're turning channels into a dim and saying there is 1 channel
     cinputs = tf.expand_dims(inputs, -1)
-    weights_shape = (1, 3, 3, 1, 1)
+    weights_shape = (1, 2, 2, 1, 1)
     #print(cinputs.get_shape())
     with tf.variable_scope(var_scope):
         max_weight = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
@@ -139,7 +139,7 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2], data_forma
    # convolves = tf.add(tf.add(tf.nn.convolution(cinputs, pcon0, 'SAME', strides = strides),
    #     tf.nn.convolution(cinputs, pcon1, 'SAME', strides = strides)), tf.add(tf.nn.convolution(cinputs, pcon2, 'SAME', strides = strides),
    #     tf.nn.convolution(cinputs, pcon3, 'SAME', strides = strides)))
-    convolves = tf.nn.convolution(cinputs, pcon0, 'SAME', strides = strides)
+    convolves = tf.nn.convolution(cinputs, pcon0, 'VALID', strides = strides)
     convolves = tf.squeeze(convolves, axis = -1, name = "convolves")
     #print(convolves.get_shape())
     outputs = tf.add(tf.multiply(max_inputs, max_weight), convolves, name = "output")
