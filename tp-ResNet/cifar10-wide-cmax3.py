@@ -65,11 +65,13 @@ class Model(ModelDesc):
             stride1 = 1
 
             with tf.variable_scope(name):
-                b1 = l if first else BNReLU(l)
                 if increase_dim:
-                    l = custom_pooling2d(b1, 'pools', padding = 'VALID')
-                c1 = Conv2D('conv1', l, out_channel, stride=stride1, nl=BNReLU)
+                    l = custom_pooling2d(l, 'pools', padding = 'VALID')
+                b1 = l if first else BNReLU(l)
+                c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
+                if increase_dim:
+                    l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
                 if first:
                     l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
 
@@ -121,17 +123,32 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1], data_format='NCHW'):
+def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2], data_format='NCHW'):
     max_inputs = MaxPooling('pool_max', inputs, 2)
-    avg_inputs = AvgPooling('pool_avg', inputs, 2)
-    weights_shape = (1)
-    with tf.variable_scope(var_scope):
-        max_weight = tf.get_variable("max_weights", weights_shape, initializer=tf.constant_initializer(0.5))
-        avg_weight = tf.get_variable("avg_weights", weights_shape, initializer=tf.constant_initializer(0.5))
-    #[Batch_size, depth, height, width]
-    outputs = tf.concat([tf.multiply(max_inputs, max_weight), tf.multiply(avg_inputs, avg_weight)], axis = 1, name = "outputs")
-    return outputs
 
+    #we want to do 1 channel at a time, so we're turning channels into a dim and saying there is 1 channel
+    cinputs = tf.expand_dims(inputs, -1)
+    weights_shape = (1, 2, 2, 1, 1)
+    #print(cinputs.get_shape())
+    with tf.variable_scope(var_scope):
+        max_weight = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.4))
+        pw0 = tf.get_variable("pw0", (1), initializer=tf.constant_initializer(0.25))
+        #pw1 = tf.get_variable("pw1", (1), initializer=tf.constant_initializer(0.15))
+        #pw2 = tf.get_variable("pw2", (1), initializer=tf.constant_initializer(0.15))
+        #pw3 = tf.get_variable("pw3", (1), initializer=tf.constant_initializer(0.15))
+        pcon0 = tf.get_variable("pcon0", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
+        pcon1 = tf.get_variable("pcon1", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
+        pcon2 = tf.get_variable("pcon2", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
+        pcon3 = tf.get_variable("pcon3", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
+    convolves = tf.add(tf.add(tf.nn.convolution(cinputs, pcon0, 'VALID', strides = strides),
+        tf.nn.convolution(cinputs, pcon1, 'VALID', strides = strides)), tf.add(tf.nn.convolution(cinputs, pcon2, 'VALID', strides = strides),
+        tf.nn.convolution(cinputs, pcon3, 'VALID', strides = strides)))
+    #convolves = (tf.nn.convolution(cinputs, pcon0, 'SAME', strides = strides)
+    convolves = pw0*convolves
+    convolves = tf.squeeze(convolves, axis = -1, name = "convolves")
+    #print(convolves.get_shape())
+    outputs = tf.add(tf.multiply(max_inputs, max_weight), convolves, name = "output")
+    return outputs
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'

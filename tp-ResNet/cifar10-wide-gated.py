@@ -136,7 +136,7 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1]):
 #    print("after input\n")
 #    print(patches.get_shape())
     weights_shape = (4)
-    patches = tf.reshape(patches, [BATCH_SIZE, pdims[1], pdims[2], inputs.get_shape().as_list()[1], weights_shape]) 
+    patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], inputs.get_shape().as_list()[1], weights_shape]) 
     patches = tf.transpose(patches, [0, 3, 1, 2, 4])
     with tf.variable_scope(var_scope):
         max_w = tf.multiply(tf.get_variable("max_w", weights_shape), tf.ones([halved, halved, weights_shape]))
