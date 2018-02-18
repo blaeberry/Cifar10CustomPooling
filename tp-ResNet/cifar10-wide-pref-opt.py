@@ -131,16 +131,15 @@ def pref_pooling(inputs, var_scope, padding, nf = 4, strides = [1, 2, 2], data_f
     #we want to do 1 channel at a time, so we're turning channels into a dim and saying there is 1 channel
     cinputs = tf.expand_dims(inputs, -1)
     weights_shape = (1, 2, 2, 1, 1)
-
-    cinit = 1/nf
     p = tf.zeros([tf.shape(inputs)[0], in_shape[1], in_shape[2] // 2, in_shape[3] // 2, 1])
+    scaling = 2.0/nf
     with tf.variable_scope(var_scope):
-        mb = tf.get_variable("mb", (in_channels, 1, 1), initializer=tf.constant_initializer(cinit))
-        mw = tf.get_variable("mw", (in_channels, 1, 1), initializer=tf.constant_initializer(0))
+        mb = tf.get_variable("mb", (in_channels, 1, 1), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
+        mw = tf.get_variable("mw", (in_channels, 1, 1), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
         for k in range(nf):
-            pb = tf.get_variable('pb{}'.format(k), (1), initializer=tf.constant_initializer(cinit))
-            pw = tf.get_variable('pw{}'.format(k), (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0))
-            pcon = tf.get_variable('pcon{}'.format(k), weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
+            pb = tf.get_variable('pb{}'.format(k), (1), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
+            pw = tf.get_variable('pw{}'.format(k), (in_channels, 1, 1, 1), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
+            pcon = tf.get_variable('pcon{}'.format(k), weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
             p = p + (pb+pw)*tf.nn.convolution(cinputs, pcon, 'VALID', strides = strides)
         p = tf.squeeze(p, axis=-1, name = 'convolves')
         p = tf.add((mb+mw)*max_inputs, p, name = "outputs")    
