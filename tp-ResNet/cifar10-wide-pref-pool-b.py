@@ -133,25 +133,30 @@ def pref_pooling(inputs, var_scope, padding, strides = [1, 2, 2], data_format='N
     #print(cinputs.get_shape())
     with tf.variable_scope(var_scope):
         max_weight = tf.get_variable("max_weights", (in_channels, 1, 1), initializer=tf.constant_initializer(0.4))
-        pw0 = tf.get_variable("pw0", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0.15))
-        pw1 = tf.get_variable("pw1", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0.15))
-        pw2 = tf.get_variable("pw2", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0.15))
-        pw3 = tf.get_variable("pw3", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0.15))
+        pw0 = tf.get_variable("pw0", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0))
+        pw1 = tf.get_variable("pw1", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0))
+        pw2 = tf.get_variable("pw2", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0))
+        pw3 = tf.get_variable("pw3", (in_channels, 1, 1, 1), initializer=tf.constant_initializer(0))
+        max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.4))
+        b0 = tf.get_variable("b0", (1), initializer=tf.constant_initializer(0.15))
+        b1 = tf.get_variable("b1", (1), initializer=tf.constant_initializer(0.15))
+        b2 = tf.get_variable("b2", (1), initializer=tf.constant_initializer(0.15))
+        b3 = tf.get_variable("b3", (1), initializer=tf.constant_initializer(0.15))
         pcon0 = tf.get_variable("pcon0", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
         pcon1 = tf.get_variable("pcon1", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
         pcon2 = tf.get_variable("pcon2", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
         pcon3 = tf.get_variable("pcon3", weights_shape, initializer=tf.contrib.layers.variance_scaling_initializer(2.0))
     convolves = tf.add(
         tf.add(
-            pw0*tf.nn.convolution(cinputs, pcon0, 'VALID', strides = strides),
-            pw1*tf.nn.convolution(cinputs, pcon1, 'VALID', strides = strides)), 
+            (pw0+b0)*tf.nn.convolution(cinputs, pcon0, 'VALID', strides = strides),
+            (pw1+b1)*tf.nn.convolution(cinputs, pcon1, 'VALID', strides = strides)), 
         tf.add(
-            pw2*tf.nn.convolution(cinputs, pcon2, 'VALID', strides = strides),
-            pw3*tf.nn.convolution(cinputs, pcon3, 'VALID', strides = strides)))
+            (pw2+b2)*tf.nn.convolution(cinputs, pcon2, 'VALID', strides = strides),
+            (pw3+b3)*tf.nn.convolution(cinputs, pcon3, 'VALID', strides = strides)))
     #convolves = (tf.nn.convolution(cinputs, pcon0, 'SAME', strides = strides)
     convolves = tf.squeeze(convolves, axis = -1, name = "convolves")
     #print(convolves.get_shape())
-    outputs = tf.add(tf.multiply(max_inputs, max_weight), convolves, name = "output")
+    outputs = tf.add(tf.multiply(max_inputs, (max_weight + max_b)), convolves, name = "output")
     return outputs
 
 def get_data(train_or_test):
