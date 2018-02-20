@@ -1,0 +1,27 @@
+######################################### 
+# 
+# Submit Description File
+# 
+#########################################
+
++Group = "UNDER" 
++Project = "AI_ROBOTICS" 
++ProjectDescription = "Pooling Operations in ResNet with Cifar10"
++GPUJob = True
+
+Universe = vanilla
+Executable = res.sh
+
+#Requirements = Memory >= 1000 && InMastodon 
+#Requirements = regexp("eldar", Machine)
+Rank = Memory >= 1000
+Request_GPUs = 1
+Request_CPUs = 4
+
+Error = train_log/densenet-err.$(Process)
+Output = train_log/densenet-out.$(Process)
+Log = train_log/densenet-res.log
+
+getenv = True
+
+Queue
