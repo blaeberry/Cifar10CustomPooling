@@ -81,7 +81,7 @@ class Model(ModelDesc):
 
 
         def densenet(name):
-            l = conv('conv0', image, self.growthRate * 2, 1)
+            l = conv('conv0', image, self.growthRate * 2, 1, 3)
             with tf.variable_scope('block1') as scope:
 
                 for i in range(self.N):
@@ -159,7 +159,6 @@ if __name__ == '__main__':
     parser.add_argument('--depth',default=100, help='The depth of densenet')
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
-    NUM_UNITS = args.num_units
 
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu

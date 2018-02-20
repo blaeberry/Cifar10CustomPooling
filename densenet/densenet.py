@@ -154,7 +154,6 @@ if __name__ == '__main__':
     parser.add_argument('--depth',default=40, help='The depth of densenet')
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
-    NUM_UNITS = args.num_units
 
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -168,7 +167,7 @@ if __name__ == '__main__':
         model=Model(depth=args.depth),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(),
+            ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
