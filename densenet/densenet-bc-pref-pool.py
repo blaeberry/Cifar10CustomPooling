@@ -133,6 +133,7 @@ class Model(ModelDesc):
 def custom_pooling2d(inputs, name, nf = 4, strides = [2, 2, 1]):
     max_inputs = MaxPooling('pool_max', inputs, 2)
     in_shape = inputs.get_shape().as_list()
+    in_channels = in_shape[3]
 
     #we want to do 1 channel at a time, so we're turning channels into a dim and saying there is 1 channel
     cinputs = tf.expand_dims(inputs, -1)
