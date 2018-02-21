@@ -53,13 +53,27 @@ class Model(ModelDesc):
             return Conv2D(name, l, channel, 3, stride=stride,
                           nl=tf.identity, use_bias=False,
                           W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+
+        def conv2(self, _input, out_features, kernel_size,
+               strides=[1, 1, 1, 1], padding='SAME'):
+            in_features = int(_input.get_shape()[-1])
+            kernel = self.weight_variable_msra(
+                [kernel_size, kernel_size, in_features, out_features], name='kernel')
+            output = tf.nn.conv2d(_input, kernel, strides, padding)
+            return output
+
+        def weight_variable_msra(self, shape, name):
+            return tf.get_variable(name=name, shape=shape,
+                initializer=tf.contrib.layers.variance_scaling_initializer())
+
         def add_layer(name, l):
             shape = l.get_shape().as_list()
             in_channel = shape[3]
             with tf.variable_scope(name) as scope:
                 c = BatchNorm('bn1', l)
                 c = tf.nn.relu(c)
-                c = conv('conv1', c, self.growthRate, 1)
+                # c = conv('conv1', c, self.growthRate, 1)
+                c = self.conv2(c, self.growthRate, 3)
                 l = tf.concat([c, l], 3)
             return l
 
@@ -69,14 +83,17 @@ class Model(ModelDesc):
             with tf.variable_scope(name) as scope:
                 l = BatchNorm('bn1', l)
                 l = tf.nn.relu(l)
-                l = Conv2D('conv1', l, in_channel, 1, stride=1, use_bias=False, nl=tf.nn.relu,
-                    W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+                # l = Conv2D('conv1', l, in_channel, 1, stride=1, use_bias=False, nl=tf.nn.relu,
+                #     W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+                l = self.conv2(l, in_channel, 1)
                 l = AvgPooling('pool', l, 2)
             return l
 
 
         def densenet(name):
-            l = conv('conv0', image, self.growthRate * 2, 1)
+            # l = conv('conv0', image, self.growthRate * 2, 1)
+            with tf.variable_scope('conv0') as scope:
+                l = self.conv2(image, self.growthRate * 2, 3)
             with tf.variable_scope('block1') as scope:
 
                 for i in range(self.N):

@@ -131,23 +131,24 @@ class Model(ModelDesc):
         return opt
 
 def custom_pooling2d(inputs, name, nf = 4, strides = [2, 2, 1]):
-    max_inputs = MaxPooling('pool_max', inputs, 2)
-    in_shape = inputs.get_shape().as_list()
-    in_channels = in_shape[3]
-
-    #we want to do 1 channel at a time, so we're turning channels into a dim and saying there is 1 channel
-    cinputs = tf.expand_dims(inputs, -1)
-    weights_shape = (2, 2, 1, 1, 1)
-    p = tf.zeros([tf.shape(inputs)[0], in_shape[1] // 2, in_shape[2] // 2, in_shape[3], 1])
-    scaling = 2.0/nf
     with tf.variable_scope(name):
-        mb = tf.get_variable("mb", (1), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
-        mw = tf.get_variable("mw", (in_channels), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
+        l = BatchNorm('bn', inputs)
+        l = tf.nn.relu(l)
+        max_inputs = MaxPooling('pool_max', l, 2)
+        in_shape = l.get_shape().as_list()
+        in_channels = in_shape[3]
+        #we want to do 1 channel at a time, so we're turning channels into a dim and saying there is 1 channel
+        cinputs = tf.expand_dims(l, -1)
+        weights_shape = (2, 2, 1, 1, 1)
+        p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3], 1])
+        # scaling = 2.0/nf
+        mb = tf.get_variable("mb", (1), initializer=tf.contrib.layers.variance_scaling_initializer())
+        mw = tf.get_variable("mw", (in_channels), initializer=tf.contrib.layers.variance_scaling_initializer())
         for k in range(nf):
-            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
-            pb = tf.get_variable('pb{}'.format(k), (in_channels, 1), initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
+            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.contrib.layers.variance_scaling_initializer())
+            pb = tf.get_variable('pb{}'.format(k), (in_channels, 1), initializer=tf.contrib.layers.variance_scaling_initializer())
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
-                initializer=tf.contrib.layers.variance_scaling_initializer(scaling))
+                initializer=tf.contrib.layers.variance_scaling_initializer())
             p = p + (pb+pw)*tf.nn.convolution(cinputs, pcon, 'VALID', strides = strides)
         p = tf.squeeze(p, axis=-1, name = 'convolves')
         p = tf.add((mb+mw)*max_inputs, p, name = "outputs")    
