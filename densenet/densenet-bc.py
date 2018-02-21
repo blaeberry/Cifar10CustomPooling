@@ -44,6 +44,18 @@ class Model(ModelDesc):
         return [InputDesc(tf.float32, [None, 32, 32, 3], 'input'),
                 InputDesc(tf.int32, [None], 'label')]
 
+    def conv2(self, _input, out_features, kernel_size,
+           strides=[1, 1, 1, 1], padding='SAME'):
+        in_features = int(_input.get_shape()[-1])
+        kernel = self.weight_variable_msra(
+            [kernel_size, kernel_size, in_features, out_features], name='kernel')
+        output = tf.nn.conv2d(_input, kernel, strides, padding)
+        return output
+
+    def weight_variable_msra(self, shape, name):
+        return tf.get_variable(name=name, shape=shape,
+            initializer=tf.contrib.layers.variance_scaling_initializer())
+
     def _build_graph(self, inputs):
         image, label = inputs
         image = image / 128.0 - 1
@@ -54,19 +66,6 @@ class Model(ModelDesc):
                           nl=tf.identity, use_bias=False,
                           W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'),
                           padding = padding)
-
-        def conv2(self, _input, out_features, kernel_size,
-               strides=[1, 1, 1, 1], padding='SAME'):
-            in_features = int(_input.get_shape()[-1])
-            kernel = self.weight_variable_msra(
-                [kernel_size, kernel_size, in_features, out_features], name='kernel')
-            output = tf.nn.conv2d(_input, kernel, strides, padding)
-            return output
-
-        def weight_variable_msra(self, shape, name):
-            return tf.get_variable(name=name, shape=shape,
-                initializer=tf.contrib.layers.variance_scaling_initializer())
-
 
         def add_layer(name, l):
             shape = l.get_shape().as_list()
