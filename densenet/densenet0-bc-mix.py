@@ -46,9 +46,9 @@ class Model(ModelDesc):
         image, label = inputs
         image = image / 128.0 - 1
         assert tf.test.is_gpu_available()
-
-        def conv(name, l, channel, stride):
-            return Conv2D(name, l, channel, 3, stride=stride,
+        
+        def conv(name, l, channel, stride, shape = 3):
+            return Conv2D(name, l, channel, shape, stride=stride,
                           nl=tf.identity, use_bias=False,
                           W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         def add_layer(name, l):
@@ -58,7 +58,7 @@ class Model(ModelDesc):
                 with tf.variable_scope("bottleneck") as scope1:
                     c = BatchNorm('bn1', l)
                     c = tf.nn.relu(c)
-                    c = conv('conv1', c, self.growthRate * 4, 1)
+                    c = conv('conv1', c, self.growthRate * 4, 1, shape = 1)
                 c = BatchNorm('bn1', l)
                 c = tf.nn.relu(c)
                 c = conv('conv1', c, self.growthRate, 1)
