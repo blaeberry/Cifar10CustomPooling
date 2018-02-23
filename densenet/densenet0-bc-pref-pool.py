@@ -73,7 +73,7 @@ class Model(ModelDesc):
                 l = tf.nn.relu(l)
                 l = Conv2D('conv1', l, int(in_channel//2), 1, stride=1, use_bias=False, nl=tf.nn.relu,
                     W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-                l = AvgPooling('pool', l, 2)
+                l = custom_pooling2d('pool', l)
             return l
 
 
@@ -139,13 +139,13 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [2, 2, 1]):
         weights_shape = (2, 2, 1, 1, 1)
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3], 1])
         # scaling = 2.0/nf
-        mb = tf.get_variable("mb", (1), initializer=tf.contrib.layers.variance_scaling_initializer())
-        mw = tf.get_variable("mw", (in_channels), initializer=tf.contrib.layers.variance_scaling_initializer())
+        mb = tf.get_variable("mb", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        mw = tf.get_variable("mw", (in_channels), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         for k in range(nf):
-            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.contrib.layers.variance_scaling_initializer())
-            pb = tf.get_variable('pb{}'.format(k), (in_channels, 1), initializer=tf.contrib.layers.variance_scaling_initializer())
+            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pb = tf.get_variable('pb{}'.format(k), (in_channels, 1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
-                initializer=tf.contrib.layers.variance_scaling_initializer())
+                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             p = p + (pb+pw)*tf.nn.convolution(cinputs, pcon, 'VALID', strides = strides)
         p = tf.squeeze(p, axis=-1, name = 'convolves')
         p = tf.add((mb+mw)*max_inputs, p, name = "outputs")    
