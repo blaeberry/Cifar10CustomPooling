@@ -177,13 +177,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('--depth',default=40, help='The depth of densenet')
-    parser.add_argument('--load', help='load model')
+    # parser.add_argument('--load', help='load model')
     args = parser.parse_args()
 
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir()
+    logger.auto_set_dir(action='k')
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -192,14 +192,14 @@ if __name__ == '__main__':
         model=Model(depth=args.depth),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
+            ModelSaver(max_to_keep = 5, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
                                       [(1, 0.1), (150, 0.01), (225, 0.001)])
         ],
         max_epoch=300,
-        session_init=SaverRestore(args.load) if args.load else None
+        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
