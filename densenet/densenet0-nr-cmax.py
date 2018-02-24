@@ -135,6 +135,8 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [2, 2, 1]):
         weights_shape = (2, 2, 1, 1, 1)
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3], 1])
 
+        scale = 1/(nf+1)
+
         mw = tf.get_variable("mw", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         for k in range(nf):
             pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
@@ -177,7 +179,7 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir()
+    logger.auto_set_dir(action='k')
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -186,14 +188,14 @@ if __name__ == '__main__':
         model=Model(depth=args.depth),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
+            ModelSaver(max_to_keep = 5, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
                                       [(1, 0.1), (150, 0.01), (225, 0.001)])
         ],
         max_epoch=300,
-        session_init=SaverRestore(args.load) if args.load else None
+        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
