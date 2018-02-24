@@ -59,7 +59,7 @@ class Model(ModelDesc):
                     c = BatchNorm('bn1', l)
                     c = tf.nn.relu(c)
                     c = conv('conv1', c, self.growthRate * 4, 1, shape = 1)
-                c = BatchNorm('bn1', l)
+                c = BatchNorm('bn1', c)
                 c = tf.nn.relu(c)
                 c = conv('conv1', c, self.growthRate, 1)
                 l = tf.concat([c, l], 3)
