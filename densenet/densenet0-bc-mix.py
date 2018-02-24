@@ -71,7 +71,7 @@ class Model(ModelDesc):
             with tf.variable_scope(name) as scope:
                 l = BatchNorm('bn1', l)
                 l = tf.nn.relu(l)
-                l = Conv2D('conv1', l, int(in_channel//2), 1, stride=1, use_bias=False, nl=tf.nn.relu,
+                l = Conv2D('conv1', l, int(in_channel//2), 1, stride=1, use_bias=False, nl=tf.identity,
                     W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
                 l = custom_pooling2d('pool', l)
             return l
