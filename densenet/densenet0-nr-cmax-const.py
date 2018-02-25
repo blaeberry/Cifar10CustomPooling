@@ -135,7 +135,7 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [2, 2, 1]):
         weights_shape = (2, 2, 1, 1, 1)
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3], 1])
 
-        scale = 1/(nf+1)
+        scale = 0.2 #FIX THIS
 
         mw = tf.get_variable("mw", (1), initializer=tf.constant_initializer(scale))
         for k in range(nf):

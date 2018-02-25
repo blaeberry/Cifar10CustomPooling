@@ -5,6 +5,7 @@
 
 import argparse
 import os
+import numpy as np
 
 
 from tensorpack import *
@@ -127,17 +128,25 @@ class Model(ModelDesc):
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
     ds = dataset.Cifar10(train_or_test)
-    pp_mean = ds.get_per_pixel_mean()
+
+    #mean and std of entire dataset taken from densenet (correct order?)
+    ch_mean = np.array([125.3, 123.0, 113.9])
+    ch_std = np.array([63.0,  62.1,  66.7])
+
     if isTrain:
         augmentors = [
             imgaug.CenterPaste((40, 40)),
             imgaug.RandomCrop((32, 32)),
             imgaug.Flip(horiz=True),
-            imgaug.MeanVarianceNormalize(all_channel=False),
+            imgaug.ToFloat32(),
+            imgaug.MapImage(lambda x: x - ch_mean),
+            imgaug.MapImage(lambda x: x / ch_std)
         ]
     else:
         augmentors = [
-            imgaug.MeanVarianceNormalize(all_channel=False)
+        imgaug.ToFloat32(),
+        imgaug.MapImage(lambda x: x - ch_mean),
+        imgaug.MapImage(lambda x: x / ch_std)
         ]
     ds = AugmentImageComponent(ds, augmentors)
     ds = BatchData(ds, BATCH_SIZE, remainder=not isTrain)
