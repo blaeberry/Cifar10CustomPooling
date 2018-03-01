@@ -123,27 +123,23 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9, use_nesterov=True)
         return opt
 
-def custom_pooling2d(name, inputs, nf = 4, strides = [2, 2, 1]):
+def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
     with tf.variable_scope(name):
         l = BatchNorm('bn', inputs)
         l = tf.nn.relu(l)
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
 
-        #we want to do 1 channel at a time, so we're turning channels into a dim and saying there is 1 channel
-        cinputs = tf.expand_dims(l, -1)
-        weights_shape = (2, 2, 1, 1, 1)
-        p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3], 1])
-
-        scale = 0.2 #FIX THIS
+        weights_shape = (2, 2, 1, 1)
+        p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
 
         mw = tf.get_variable("mw", (1), initializer=tf.constant_initializer(scale))
         for k in range(nf):
             pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.constant_initializer(scale))
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            p = p + (pw)*tf.nn.convolution(cinputs, pcon, 'VALID', strides = strides)
-        p = tf.squeeze(p, axis=-1, name = 'convolves')
+                initializer=tf.constant_initializer(scale))
+            pcon = tf.tile(pcon, [1, 1, in_shape[3], 1])
+            p = p + (pw)*tf.nn.depthwise_conv2d(inputs, pcon, strides, 'VALID')
         p = tf.add((mw)*max_inputs, p, name = "outputs")    
     return p
 
