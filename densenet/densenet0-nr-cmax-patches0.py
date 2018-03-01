@@ -5,7 +5,7 @@
 
 import argparse
 import os
-
+import numpy as np
 
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
@@ -123,24 +123,44 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9, use_nesterov=True)
         return opt
 
-def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
+def custom_conv(inputs):
+    #print(inputs.get_shape())
+    weights_shape = (1, 1, 4, 1)
+    pcon = tf.get_variable('conv', weights_shape, 
+        initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+    return tf.nn.convolution(inputs, pcon, 'VALID')
+
+def custom_conv2(inputs, in_channel):
+    #print(inputs.get_shape())
+    weights_shape = (1, 1, 4, 1)
+    pcon = tf.get_variable('conv', weights_shape, 
+        initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+    vals = []
+    for i in range(in_channel):
+        vals.append(tf.nn.convolution(inputs[i], pcon, 'VALID'))
+    return tf.concat(vals, axis = -1)
+
+def custom_pooling2d(name, inputs, nf = 4):
     with tf.variable_scope(name):
         l = BatchNorm('bn', inputs)
         l = tf.nn.relu(l)
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
+        in_channel = in_shape[3]
 
-        weights_shape = (2, 2, 1, 1)
+        patches = tf.extract_image_patches(l, ksizes = [1, 2, 2, 1], strides = [1, 2, 2, 1], rates = [1, 1, 1, 1],
+            padding = 'VALID', name = 'patches')
+        parts = tf.split(patches, in_channel, axis=-1)
+        #print(parts.get_shape())
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
 
         mw = tf.get_variable("mw", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         for k in range(nf):
             pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.tile(pcon, [1, 1, in_shape[3], 1])
-            p = p + (pw)*tf.nn.depthwise_conv2d(inputs, pcon, strides, 'VALID')
-        p = tf.add((mw)*max_inputs, p, name = "outputs")    
+            with tf.variable_scope('pcon{}'.format(k)):
+                conv = custom_conv2(parts, in_channel)
+            p = p + pw*conv
+        p = tf.add(mw*max_inputs, p, name = "outputs")    
     return p
 
 def get_data(train_or_test):
@@ -189,6 +209,9 @@ if __name__ == '__main__':
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
                                       [(1, 0.1), (150, 0.01), (225, 0.001)])
+            #GraphProfiler()
+            #EnableCallbackIf(GPUUtilizationTracker(),
+            #                 lambda self: self.trainer.global_step > 10 and self.trainer.global_step < 20),
         ],
         max_epoch=300,
         session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
