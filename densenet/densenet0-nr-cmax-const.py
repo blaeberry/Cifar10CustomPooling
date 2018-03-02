@@ -129,6 +129,7 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
         l = tf.nn.relu(l)
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
+        scale = 1/(nf+1)
 
         weights_shape = (2, 2, 1, 1)
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
