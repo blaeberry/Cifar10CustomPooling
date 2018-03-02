@@ -129,18 +129,21 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
         l = tf.nn.relu(l)
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
-        scale = 1.0/(nf+1.0)
+        in_channels = in_shape[3]
 
         weights_shape = (2, 2, 1, 1)
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
 
-        mw = tf.get_variable("mw", (1), initializer=tf.constant_initializer(scale))
+        mb = tf.get_variable("mb", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        mw = tf.get_variable("mw", (in_channels), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         for k in range(nf):
-            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.constant_initializer(scale))
+            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pb = tf.get_variable('pb{}'.format(k), (in_channels), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
-                initializer=tf.constant_initializer(scale))
+                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.tile(pcon, [1, 1, in_shape[3], 1])
-            p = p + (pw)*tf.nn.depthwise_conv2d(inputs, pcon, strides, 'VALID')
+            pcon = (pb+pw)+pcon
+            p = p + tf.nn.depthwise_conv2d(inputs, pcon, strides, 'VALID')
         p = tf.add((mw)*max_inputs, p, name = "outputs")    
     return p
 
@@ -176,7 +179,7 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir(action='k')
+    logger.auto_set_dir()
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -185,14 +188,14 @@ if __name__ == '__main__':
         model=Model(depth=args.depth),
         dataflow=dataset_train,
         callbacks=[
-            ModelSaver(max_to_keep = 5, keep_checkpoint_every_n_hours = 10000),
+            ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
                                       [(1, 0.1), (150, 0.01), (225, 0.001)])
         ],
         max_epoch=300,
-        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
+        session_init=SaverRestore(args.load) if args.load else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
