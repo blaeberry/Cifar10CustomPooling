@@ -131,7 +131,7 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
         in_shape = l.get_shape().as_list()
         in_channels = in_shape[3]
 
-        weights_shape = (2, 2, 1, 1)
+        weights_shape = (2, 2, 1)
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
 
         mb = tf.get_variable("mb", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
@@ -141,8 +141,9 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
             pb = tf.get_variable('pb{}'.format(k), (in_channels), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.tile(pcon, [1, 1, in_shape[3], 1])
+            pcon = tf.tile(pcon, [1, 1, in_shape[3]])
             pcon = (pb*pw)*pcon
+            pcon = tf.expand_dims(pcon, -1)
             p = p + tf.nn.depthwise_conv2d(inputs, pcon, strides, 'VALID')
         p = tf.add((mw)*max_inputs, p, name = "outputs")    
     return p
