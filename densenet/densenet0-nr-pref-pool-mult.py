@@ -145,7 +145,7 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
             pcon = (pb*pw)*pcon
             pcon = tf.expand_dims(pcon, -1)
             p = p + tf.nn.depthwise_conv2d(inputs, pcon, strides, 'VALID')
-        p = tf.add((mw)*max_inputs, p, name = "outputs")    
+        p = tf.add((mb*mw)*max_inputs, p, name = "outputs")    
     return p
 
 def get_data(train_or_test):
