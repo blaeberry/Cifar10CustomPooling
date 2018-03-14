@@ -49,7 +49,7 @@ class Model(ModelDesc):
         assert tf.test.is_gpu_available()
 
         def conv(name, l, kernel, stride):
-            conv = tf.nn.conv2d(l, kernel, stride, padding = 'SAME', data_format='NHWC')
+            conv = tf.nn.conv2d(l, kernel, [1, stride, stride, 1], padding = 'SAME', data_format='NHWC')
             ret = tf.identity(conv, name = name)
             ret.variables = VariableHolder(W=kernel)
             return ret
@@ -73,7 +73,7 @@ class Model(ModelDesc):
                 l = BatchNorm('bn1', l)
                 l = tf.nn.relu(l)
                 kernel, filters = expand_filters(filters, in_channel)
-                l = conv('conv1', kernel, 1)
+                l = conv('conv1', l, kernel, 1)
                 l = AvgPooling('pool', l, 2)
             return l
 
@@ -84,7 +84,7 @@ class Model(ModelDesc):
                 shape = filters.get_shape().as_list()
 
             num_filters = shape[2] + growth
-            new_filters = tf.get_variable('new_filters{}'.format(i), (shape[0], shape[1], growth), 
+            new_filters = tf.get_variable('new_filters', (shape[0], shape[1], growth), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
 
             if filters is None:
@@ -92,10 +92,10 @@ class Model(ModelDesc):
             else:
                 filters = tf.concat([filters, new_filters], -1)
 
-            ch_prefs = tf.get_variable('ch_prefs{}'.format(i), (in_channels, num_filters), 
+            ch_prefs = tf.get_variable('ch_prefs', (in_channels, num_filters), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             kernel = tf.expand_dims(filters, axis = 2) #w,h,1,num_filters
-            kernel = filters * ch_prefs #w,h,1,num_filters * in_channels,num_filters
+            kernel = kernel * ch_prefs #w,h,1,num_filters * in_channels,num_filters
             #returns the updated filters and the filters expanded across the depth for convolution
             return kernel, filters
 

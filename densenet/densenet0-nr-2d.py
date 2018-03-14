@@ -48,7 +48,7 @@ class Model(ModelDesc):
         assert tf.test.is_gpu_available()
 
         def conv(name, l, kernel, stride):
-            conv = tf.nn.conv2d(l, kernel, stride, padding = 'SAME', data_format='NHWC')
+            conv = tf.nn.conv2d(l, kernel, [1, stride, stride, 1], padding = 'SAME', data_format='NHWC')
             ret = tf.identity(conv, name = name)
             ret.variables = VariableHolder(W=kernel)
             return ret

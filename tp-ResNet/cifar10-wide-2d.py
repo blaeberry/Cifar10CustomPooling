@@ -51,7 +51,7 @@ class Model(ModelDesc):
         image = tf.transpose(image, [0, 3, 1, 2])
 
         def conv(name, l, kernel, stride, nl = tf.identity):
-            conv = tf.nn.conv2d(l, kernel, [1,1,stride,stride] padding = 'SAME', data_format='NCHW')
+            conv = tf.nn.conv2d(l, kernel, [1,1,stride,stride], padding = 'SAME', data_format='NCHW')
             ret = nl(conv, name = name)
             ret.variables = VariableHolder(W=kernel)
             return ret
@@ -84,11 +84,12 @@ class Model(ModelDesc):
                 b1 = l if first else BNReLU(l)
 
                 kernel = expand_filters(out_channel, in_channel)
-                c1 = conv('conv1', b1, kernel, stride1, nl=BNReLU)
+                with tf.variable_scope('first'):
+                    c1 = conv('conv1', b1, kernel, stride1, nl=BNReLU)
 
                 with tf.variable_scope('second'):
                     kernel = expand_filters(out_channel, out_channel)
-                c2 = conv('conv2', c1, kernel, 1)
+                    c2 = conv('conv2', c1, kernel, 1)
                 
                 if first:
                     l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
