@@ -30,6 +30,7 @@ To train:
 
 BATCH_SIZE = 64
 NUM_BLOCKS = 3
+START_DEPTH = 24
 
 class Model(ModelDesc):
 
@@ -54,72 +55,62 @@ class Model(ModelDesc):
             ret.variables = VariableHolder(W=kernel)
             return ret
 
-        def add_layer(name, l, filters):
-            #filters should be a tensor of [w, h, num_filters]
+        def add_layer(name, l):
             shape = l.get_shape().as_list()
             in_channel = shape[3]
+            kernel = expand_filters(in_channel) # kernel = [3, 3, in_channel, num_used_filters]
             with tf.variable_scope(name) as scope:
                 c = BatchNorm('bn1', l)
                 c = tf.nn.relu(c)
-                kernel, filters = expand_filters(filters, in_channel)
                 c = conv('conv1', c, kernel, 1)
                 l = tf.concat([c, l], 3)
-            return l, filters
+            return l
 
-        def add_transition(name, l, filters):
+        def add_transition(name, l):
             shape = l.get_shape().as_list()
             in_channel = shape[3]
+            kernel = expand_filters(in_channel)
             with tf.variable_scope(name) as scope:
                 l = BatchNorm('bn1', l)
                 l = tf.nn.relu(l)
-                kernel, filters = expand_filters(filters, in_channel)
                 l = conv('conv1', l, kernel, 1)
                 l = AvgPooling('pool', l, 2)
             return l
 
-        def expand_filters(filters, in_channels, growth = self.growthRate):
-            if filters is None:
-                shape = (3, 3, 0)
-            else:
-                shape = filters.get_shape().as_list()
+        def expand_filters(in_channels):
+            num_total_filters = (self.N+1) * self.growthRate #2 * 12
+            i = ((in_channels - START_DEPTH) // self.growthRate) + 1 #from 1 to N+1
+            num_used_filters = i*self.growthRate
 
-            num_filters = shape[2] + growth
-            new_filters = tf.get_variable('new_filters', (shape[0], shape[1], growth), 
+            filters = tf.get_variable('filters', (3, 3, num_total_filters), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
 
-            if filters is None:
-                filters = new_filters
-            else:
-                filters = tf.concat([filters, new_filters], -1)
-
-            ch_prefs = tf.get_variable('ch_prefs', (in_channels, num_filters), 
+            ch_prefs = tf.get_variable('ch_prefs.{}'.format(i), (in_channels, num_used_filters), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            kernel = tf.expand_dims(filters, axis = 2) #w,h,1,num_filters
-            kernel = kernel * ch_prefs #w,h,1,num_filters * in_channels,num_filters
-            #returns the updated filters and the filters expanded across the depth for convolution
-            return kernel, filters
+            kernel = filters[:, :, 0:(num_used_filters-1)]
+            kernel = tf.expand_dims(kernel, axis = 2) #[3,3,1,num_used_filters]
+            kernel = kernel * ch_prefs #[3,3,1,num_used_filters] * [in_channels,num_used_filters]
+            #returns the selected filters expanded across the depth for convolution
+            return kernel
 
         def densenet(name):
-            l = Conv2D('conv0', image, 12 * 2, 3, stride=1,
+            l = Conv2D('conv0', image, START_DEPTH, 3, stride=1,
                 nl=tf.identity, use_bias=False,
                 W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
 
-            with tf.variable_scope('block1') as scope:
-                filters = None
+            with tf.variable_scope('block1', reuse=True) as scope:
                 for i in range(self.N):
-                    l, filters = add_layer('dense_layer.{}'.format(i), l, filters)
-                l = add_transition('transition1', l, filters)
+                    l = add_layer('dense_layer.{}'.format(i), l)
+                l = add_transition('transition1', l)
 
-            with tf.variable_scope('block2') as scope:
-                filters = None
+            with tf.variable_scope('block2', reuse=True) as scope:
                 for i in range(self.N):
-                    l, filters = add_layer('dense_layer.{}'.format(i), l, filters)
-                l = add_transition('transition2', l, filters)
+                    l = add_layer('dense_layer.{}'.format(i), l)
+                l = add_transition('transition2', l)
 
-            with tf.variable_scope('block3') as scope:
-                filters = None
+            with tf.variable_scope('block3', reuse=True) as scope:
                 for i in range(self.N):
-                    l, filters = add_layer('dense_layer.{}'.format(i), l, filters)
+                    l = add_layer('dense_layer.{}'.format(i), l)
 
             l = BatchNorm('bnlast', l)
             l = tf.nn.relu(l)
