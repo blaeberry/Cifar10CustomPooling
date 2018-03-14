@@ -55,39 +55,40 @@ class Model(ModelDesc):
             ret.variables = VariableHolder(W=kernel)
             return ret
 
-        def add_layer(name, l):
+        def add_layer(name, l, i):
             shape = l.get_shape().as_list()
             in_channel = shape[3]
-            kernel = expand_filters(in_channel) # kernel = [3, 3, in_channel, num_used_filters]
-            with tf.variable_scope(name) as scope:
+            kernel = expand_filters(in_channel, i) # kernel = [3, 3, in_channel, num_used_filters]
+            with tf.variable_scope(name, reuse=False) as scope:
                 c = BatchNorm('bn1', l)
                 c = tf.nn.relu(c)
                 c = conv('conv1', c, kernel, 1)
                 l = tf.concat([c, l], 3)
             return l
 
-        def add_transition(name, l):
+        def add_transition(name, l, i):
             shape = l.get_shape().as_list()
             in_channel = shape[3]
-            kernel = expand_filters(in_channel)
-            with tf.variable_scope(name) as scope:
+            kernel = expand_filters(in_channel, i)
+            with tf.variable_scope(name, reuse=False) as scope:
                 l = BatchNorm('bn1', l)
                 l = tf.nn.relu(l)
                 l = conv('conv1', l, kernel, 1)
                 l = AvgPooling('pool', l, 2)
             return l
 
-        def expand_filters(in_channels):
+        def expand_filters(in_channels, x):
+            i = x + 1
             num_total_filters = (self.N+1) * self.growthRate #2 * 12
-            i = ((in_channels - START_DEPTH) // self.growthRate) + 1 #from 1 to N+1
             num_used_filters = i*self.growthRate
-
-            filters = tf.get_variable('filters', (3, 3, num_total_filters), 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-
+            with tf.variable_scope('reused') as scope:
+                if i > 1:
+                    scope.reuse_variables() 
+                filters = tf.get_variable('filters', (3, 3, num_total_filters), 
+                    initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             ch_prefs = tf.get_variable('ch_prefs.{}'.format(i), (in_channels, num_used_filters), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            kernel = filters[:, :, 0:(num_used_filters-1)]
+            kernel = filters[:, :, 0:(num_used_filters)]
             kernel = tf.expand_dims(kernel, axis = 2) #[3,3,1,num_used_filters]
             kernel = kernel * ch_prefs #[3,3,1,num_used_filters] * [in_channels,num_used_filters]
             #returns the selected filters expanded across the depth for convolution
@@ -98,19 +99,19 @@ class Model(ModelDesc):
                 nl=tf.identity, use_bias=False,
                 W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
 
-            with tf.variable_scope('block1', reuse=True) as scope:
+            with tf.variable_scope('block1') as scope:
                 for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l)
-                l = add_transition('transition1', l)
+                    l = add_layer('dense_layer.{}'.format(i), l, i)
+                l = add_transition('transition1', l, self.N)
 
-            with tf.variable_scope('block2', reuse=True) as scope:
+            with tf.variable_scope('block2') as scope:
                 for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l)
-                l = add_transition('transition2', l)
+                    l = add_layer('dense_layer.{}'.format(i), l, i)
+                l = add_transition('transition2', l, self.N)
 
-            with tf.variable_scope('block3', reuse=True) as scope:
+            with tf.variable_scope('block3') as scope:
                 for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l)
+                    l = add_layer('dense_layer.{}'.format(i), l, i)
 
             l = BatchNorm('bnlast', l)
             l = tf.nn.relu(l)
