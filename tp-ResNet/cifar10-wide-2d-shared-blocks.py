@@ -56,34 +56,22 @@ class Model(ModelDesc):
             ret.variables = VariableHolder(W=kernel)
             return ret
 
-        def expand_filters(num_filters, in_channels):
-            filters = tf.get_variable('filters', (3, 3, num_filters), 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            ch_prefs = tf.get_variable('ch_prefs', (in_channels, num_filters), 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            kernel = tf.expand_dims(filters, axis = 2) #w,h,1,num_filters
-            kernel = kernel * ch_prefs #w,h,1,num_filters * in_channels,num_filters
-            #returns the updated filters and the filters expanded across the depth for convolution
-            return kernel
-
-        def expand_filters(in_channels, x, reuse = True):
-            num_used_filters = in_channels
+        def expand_filters(in_channels, out_channels, x, reuse = True):
+            num_used_filters = out_channels
             if x == -1:
-                num_used_filters = num_used_filters*4
                 x = 0
                 reuse = False
-            if x == 0:
-                num_used_filters = num_used_filters*2
             i = x + 1
             num_total_filters = 512 #number of filters used in final ResNet block
-            with tf.variable_scope('reused') as scope:
+            with tf.variable_scope('reused', reuse = False) as scope:
                 if reuse:
                     scope.reuse_variables() 
                 filters = tf.get_variable('filters', (3, 3, num_total_filters), 
                     initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            ch_prefs = tf.get_variable('ch_prefs.{}'.format(i), (in_channels, num_used_filters), 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            kernel = filters[:, :, 0:(num_used_filters-1)]
+            with tf.variable_scope('prefs.{}'.format(out_channels), reuse = False) as scope:
+                ch_prefs = tf.get_variable('ch_prefs.{}'.format(i), (in_channels, num_used_filters), 
+                    initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            kernel = filters[:, :, 0:(num_used_filters)]
             kernel = tf.expand_dims(kernel, axis = 2) #[3,3,1,num_used_filters]
             kernel = kernel * ch_prefs #[3,3,1,num_used_filters] * [in_channels,num_used_filters]
             #returns the selected filters expanded across the depth for convolution
@@ -104,16 +92,17 @@ class Model(ModelDesc):
             if first:
                 out_channel = out_channel * 8
 
+            kernel1 = expand_filters(in_channel, out_channel, k)
+            with tf.variable_scope('second'):
+                kernel2 = expand_filters(out_channel, out_channel, k)
             with tf.variable_scope(name):
                 b1 = l if first else BNReLU(l)
 
-                kernel = expand_filters(out_channel, k)
                 with tf.variable_scope('first'):
-                    c1 = conv('conv1', b1, kernel, stride1, nl=BNReLU)
+                    c1 = conv('conv1', b1, kernel1, stride1, nl=BNReLU)
 
                 with tf.variable_scope('second'):
-                    kernel = expand_filters(out_channel, k)
-                    c2 = conv('conv2', c1, kernel, 1)
+                    c2 = conv('conv2', c1, kernel2, 1)
                 
                 if first:
                     l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
@@ -127,19 +116,18 @@ class Model(ModelDesc):
         with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
-            kernel = expand_filters(16, 3)
-            l = conv('conv0', image, kernel, 1, nl = BNReLU)
-            l = residual('res1.0', l, first=True, -1) # -1 used to signal filters' variable to be initialized
+            l = Conv2D('conv0', image, 16, nl=BNReLU)
+            l = residual('res1.0', l, -1, first=True) # -1 used to signal filters' variable to be initialized
             for k in range(1, self.n):
                 l = residual('res1.{}'.format(k), l, k)
             # 32,c=16
 
-            l = residual('res2.0', l, increase_dim=True, 0)
+            l = residual('res2.0', l, 0, increase_dim=True)
             for k in range(1, self.n):
                 l = residual('res2.{}'.format(k), l, k)
             # 16,c=32
 
-            l = residual('res3.0', l, increase_dim=True, 0)
+            l = residual('res3.0', l, 0, increase_dim=True)
             for k in range(1, self.n):
                 l = residual('res3.' + str(k), l, k)
             l = BNReLU('bnlast', l)
@@ -206,7 +194,7 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir()
+    logger.auto_set_dir(action='k')
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -222,7 +210,7 @@ if __name__ == '__main__':
                                       [(1, 0.1), (60, 0.01), (120, 0.001)])
         ],
         max_epoch=150,
-        session_init=SaverRestore(args.load) if args.load else None
+        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
