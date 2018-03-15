@@ -70,13 +70,13 @@ class Model(ModelDesc):
             with tf.variable_scope(name) as scope:
                 l = BatchNorm('bn1', l)
                 l = tf.nn.relu(l)
-                kernel = expand_filters(self.growthRate, in_channel)
+                kernel = expand_filters(in_channel, in_channel, size = 1)
                 l = conv('conv1', l, kernel, 1)
                 l = AvgPooling('pool', l, 2)
             return l
 
-        def expand_filters(num_filters, in_channels):
-            filters = tf.get_variable('filters', (3, 3, num_filters), 
+        def expand_filters(num_filters, in_channels, size = 3):
+            filters = tf.get_variable('filters', (size, size, num_filters), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             ch_prefs = tf.get_variable('ch_prefs', (in_channels, num_filters), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
@@ -86,8 +86,10 @@ class Model(ModelDesc):
             return kernel
 
         def densenet(name):
-            kernel = expand_filters(self.growthRate, 3)
-            l = conv('conv0', image, kernel, 1)
+            l = Conv2D('name', image, self.growthRate * 2, 3, stride=1,
+                nl=tf.identity, use_bias=False,
+                W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+
             with tf.variable_scope('block1') as scope:
 
                 for i in range(self.N):
