@@ -38,7 +38,7 @@ class Model(ModelDesc):
         super(Model, self).__init__()
         self.N = int((depth - (NUM_BLOCKS + 1)) // NUM_BLOCKS) #layers per block
         #the updated growthRate can be calculated as new_growthRate = (2*old_growthRate*N)/(N^2+N)
-        self.growthRate = 2
+        self.growthRate = 1
 
     def _get_inputs(self):
         return [InputDesc(tf.float32, [None, 32, 32, 3], 'input'),
@@ -55,10 +55,9 @@ class Model(ModelDesc):
             ret.variables = VariableHolder(W=kernel)
             return ret
 
-        def add_layer(name, l, i):
+        def add_layer(name, l, kernel):
             shape = l.get_shape().as_list()
             in_channel = shape[3]
-            kernel = expand_filters(in_channel, i) # kernel = [3, 3, in_channel, num_used_filters]
             with tf.variable_scope(name, reuse=False) as scope:
                 c = BatchNorm('bn1', l)
                 c = tf.nn.relu(c)
@@ -66,11 +65,11 @@ class Model(ModelDesc):
                 l = tf.concat([c, l], 3)
             return l
 
-        def add_transition(name, l, i):
+        def add_transition(name, l):
             shape = l.get_shape().as_list()
             in_channel = shape[3]
-            kernel = expand_filters(in_channel, i)
             with tf.variable_scope(name, reuse=False) as scope:
+                kernel = expand_filters_transition(in_channel)
                 l = BatchNorm('bn1', l)
                 l = tf.nn.relu(l)
                 l = conv('conv1', l, kernel, 1)
@@ -78,15 +77,14 @@ class Model(ModelDesc):
             return l
 
         def expand_filters(in_channels, x):
-            i = x + 1
-            num_total_filters = (self.N+1) * self.growthRate #2 * 12
-            num_used_filters = i*self.growthRate
+            num_total_filters = (self.N * self.growthRate * 3) #12 * 1 * 3
+            num_used_filters = (x)*self.growthRate
             with tf.variable_scope('reused') as scope:
-                if i > 1:
+                if x > 0:
                     scope.reuse_variables() 
                 filters = tf.get_variable('filters', (3, 3, num_total_filters), 
                     initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            ch_prefs = tf.get_variable('ch_prefs.{}'.format(i), (in_channels, num_used_filters), 
+            ch_prefs = tf.get_variable('ch_prefs.{}'.format(x), (in_channels, num_used_filters), 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             kernel = filters[:, :, 0:(num_used_filters)]
             kernel = tf.expand_dims(kernel, axis = 2) #[3,3,1,num_used_filters]
@@ -94,24 +92,39 @@ class Model(ModelDesc):
             #returns the selected filters expanded across the depth for convolution
             return kernel
 
+        def expand_filters_transition(in_channels):
+            filters = tf.get_variable('filters', (1, 1, in_channels), 
+                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            ch_prefs = tf.get_variable('ch_prefs', (in_channels, in_channels), 
+                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            kernel = tf.expand_dims(filters, axis = 2) #w,h,1,num_filters
+            kernel = kernel * ch_prefs #w,h,1,num_filters * in_channels,num_filters
+            #returns the updated filters and the filters expanded across the depth for convolution
+            return kernel
+
         def densenet(name):
             l = Conv2D('conv0', image, START_DEPTH, 3, stride=1,
                 nl=tf.identity, use_bias=False,
                 W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
 
+            for i in range(self.N):
+                kernel = expand_filters(in_channel, i) # kernel = [3, 3, in_channel, num_used_filters]
+                with tf.variable_scope('block1') as scope:
+                    l = add_layer('dense_layer.{}'.format(i), l, kernel)
             with tf.variable_scope('block1') as scope:
-                for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l, i)
-                l = add_transition('transition1', l, self.N)
+                l = add_transition('transition1', l)
 
+            for i in range(self.N):
+                kernel = expand_filters(in_channel, i+self.N)
+                with tf.variable_scope('block2') as scope:
+                    l = add_layer('dense_layer.{}'.format(i), l, kernel)
             with tf.variable_scope('block2') as scope:
-                for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l, i)
-                l = add_transition('transition2', l, self.N)
+                l = add_transition('transition2', l)
 
-            with tf.variable_scope('block3') as scope:
-                for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l, i)
+            for i in range(self.N):
+                kernel = expand_filters(in_channel, i+(self.N*2))
+                with tf.variable_scope('block3') as scope:
+                    l = add_layer('dense_layer.{}'.format(i), l, kernel)
 
             l = BatchNorm('bnlast', l)
             l = tf.nn.relu(l)
