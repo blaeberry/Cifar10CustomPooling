@@ -108,6 +108,7 @@ class Model(ModelDesc):
                 W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
 
             for i in range(self.N):
+                in_channel = l.get_shape().as_list()[3]
                 kernel = expand_filters(in_channel, i) # kernel = [3, 3, in_channel, num_used_filters]
                 with tf.variable_scope('block1') as scope:
                     l = add_layer('dense_layer.{}'.format(i), l, kernel)
@@ -115,6 +116,7 @@ class Model(ModelDesc):
                 l = add_transition('transition1', l)
 
             for i in range(self.N):
+                in_channel = l.get_shape().as_list()[3]
                 kernel = expand_filters(in_channel, i+self.N)
                 with tf.variable_scope('block2') as scope:
                     l = add_layer('dense_layer.{}'.format(i), l, kernel)
@@ -122,6 +124,7 @@ class Model(ModelDesc):
                 l = add_transition('transition2', l)
 
             for i in range(self.N):
+                in_channel = l.get_shape().as_list()[3]
                 kernel = expand_filters(in_channel, i+(self.N*2))
                 with tf.variable_scope('block3') as scope:
                     l = add_layer('dense_layer.{}'.format(i), l, kernel)
