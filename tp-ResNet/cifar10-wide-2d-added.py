@@ -100,7 +100,7 @@ class Model(ModelDesc):
                         d1 = conv('conv1', b1, kernel, stride1, nl=BNReLU)
 
                     with tf.variable_scope('old2'):
-                        kernel = expand_filters(filters2, out_channel)
+                        kernel = expand_old_filters(filters2, in_channel)
                         d2 = conv('conv2', d1, kernel, 1)
 
                 kernel, filters1 = expand_filters(out_channel, in_channel)
@@ -125,7 +125,7 @@ class Model(ModelDesc):
         with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
-            kernel = expand_filters(16, 3)
+            kernel, filters1 = expand_filters(16, 3)
             l = conv('conv0', image, kernel, 1, nl = BNReLU)
             l, filters1, filters2 = residual('res1.0', l, None, None, first=True)
             for k in range(1, self.n):
