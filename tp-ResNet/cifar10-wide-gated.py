@@ -126,28 +126,19 @@ class Model(ModelDesc):
 def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1]):
     max_inputs = MaxPooling('pool_max', inputs, 2)
     avg_inputs = AvgPooling('pool_avg', inputs, 2)
-#    print("input\n")
-#    print(inputs.get_shape())
     inputs_nhwc = tf.transpose(inputs, [0, 2, 3, 1])
     patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
-    #patches = tf.transpose(patches, [0, 3, 1, 2])
     pdims = patches.get_shape().as_list()
-    halved = pdims[2]
-#    print("after input\n")
-#    print(patches.get_shape())
-    weights_shape = (4)
-    patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], inputs.get_shape().as_list()[1], weights_shape]) 
-    patches = tf.transpose(patches, [0, 3, 1, 2, 4])
+    patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], inputs.get_shape().as_list()[1], 4]) 
+    patches = tf.transpose(patches, [0, 3, 1, 2, 4]) #NCWHP
     with tf.variable_scope(var_scope):
-        max_w = tf.multiply(tf.get_variable("max_w", weights_shape), tf.ones([halved, halved, weights_shape]))
-        #max_w = tf.transpose(max_w, [0, 3, 1, 2])
-        max_w = tf.reduce_sum(tf.multiply(max_w, patches), 4)
-        max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
-        avg_w = tf.multiply(tf.get_variable("avg_w", weights_shape), tf.ones([halved, halved, weights_shape]))
-        #avg_w = tf.transpose(avg_w, [0, 3, 1, 2])
-        avg_w = tf.reduce_sum(tf.multiply(avg_w, patches), 4)
-        avg_b = tf.get_variable("avg_b", (1), initializer=tf.constant_initializer(0.5))
-    outputs = tf.multiply(max_inputs, max_w + max_b) + tf.multiply(avg_inputs, avg_w + avg_b)
+        max_gate = tf.get_variable("max_gate", [1,1,1,1,4])
+        avg_gate = tf.get_variable("avg_gate", [1,1,1,1,4])
+        max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
+        avg_w = tf.reduce_sum(tf.multiply(avg_gate, patches), 4)
+        # max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
+        # avg_b = tf.get_variable("avg_b", (1), initializer=tf.constant_initializer(0.5))
+    outputs = tf.multiply(max_inputs, max_w) + tf.multiply(avg_inputs, avg_w)
     return outputs
 
 
@@ -186,7 +177,7 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir()
+    logger.auto_set_dir(action='k')
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -202,7 +193,7 @@ if __name__ == '__main__':
                                       [(1, 0.1), (60, 0.01), (120, 0.001)])#, ScalarPrinter(whitelist=[".*pools.*"])
         ],
         max_epoch=150,
-        session_init=SaverRestore(args.load) if args.load else None
+        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
