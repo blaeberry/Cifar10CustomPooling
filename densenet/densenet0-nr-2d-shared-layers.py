@@ -78,7 +78,7 @@ class Model(ModelDesc):
 
         def expand_filters(in_channels, x):
             num_total_filters = (self.N * self.growthRate * 3) #12 * 1 * 3
-            num_used_filters = (x)*self.growthRate
+            num_used_filters = (x+1)*self.growthRate
             with tf.variable_scope('reused') as scope:
                 if x > 0:
                     scope.reuse_variables() 
