@@ -132,8 +132,8 @@ def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1]):
     patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], inputs.get_shape().as_list()[1], 4]) 
     patches = tf.transpose(patches, [0, 3, 1, 2, 4]) #NCWHP
     with tf.variable_scope(var_scope):
-        max_gate = tf.get_variable("max_gate", [1,1,1,1,4])
-        avg_gate = tf.get_variable("avg_gate", [1,1,1,1,4])
+        max_gate = tf.get_variable("max_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        avg_gate = tf.get_variable("avg_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
         avg_w = tf.reduce_sum(tf.multiply(avg_gate, patches), 4)
         # max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))

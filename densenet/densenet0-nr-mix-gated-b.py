@@ -135,9 +135,9 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
         avg_gate = tf.get_variable("avg_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
         avg_w = tf.reduce_sum(tf.multiply(avg_gate, patches), 4)
-        # max_b = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
-        # avg_b = tf.get_variable("avg_weights", (1), initializer=tf.constant_initializer(0.5))
-    p = tf.add(tf.multiply(max_inputs, max_w), tf.multiply(avg_inputs, avg_w), name = 'outputs')
+        max_b = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
+        avg_b = tf.get_variable("avg_weights", (1), initializer=tf.constant_initializer(0.5))
+    p = tf.add(tf.multiply(max_inputs, max_w + max_b), tf.multiply(avg_inputs, avg_w + avg_b), name = 'outputs')
     return p
 
 def get_data(train_or_test):

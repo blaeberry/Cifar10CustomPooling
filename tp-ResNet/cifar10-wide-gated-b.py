@@ -6,7 +6,6 @@
 import argparse
 import os
 
-
 from tensorpack import *
 from tensorpack.tfutils.summary import add_moving_summary, add_param_summary
 from tensorpack.utils.gpu import get_nr_gpu
@@ -19,24 +18,26 @@ CIFAR10 ResNet example. See:
 Deep Residual Learning for Image Recognition, arxiv:1512.03385
 This implementation uses the variants proposed in:
 Identity Mappings in Deep Residual Networks, arxiv:1603.05027
+
 I can reproduce the results on 2 TitanX for
 n=5, about 7.1% val error after 67k steps (20.4 step/s)
 n=18, about 5.95% val error after 80k steps (5.6 step/s, not converged)
 n=30: a 182-layer network, about 5.6% val error after 51k steps (3.4 step/s)
 This model uses the whole training set instead of a train-val split.
+
 To train:
     ./cifar10-resnet.py --gpu 0,1
 """
 
-BATCH_SIZE = 64
-NUM_BLOCKS = 3
+BATCH_SIZE = 128
+NUM_UNITS = None
+
 
 class Model(ModelDesc):
 
-    def __init__(self, depth):
+    def __init__(self, n):
         super(Model, self).__init__()
-        self.N = int((depth - (NUM_BLOCKS + 1)) // NUM_BLOCKS) #layers per block
-        self.growthRate = 12
+        self.n = n
 
     def _get_inputs(self):
         return [InputDesc(tf.float32, [None, 32, 32, 3], 'input'),
@@ -44,62 +45,62 @@ class Model(ModelDesc):
 
     def _build_graph(self, inputs):
         image, label = inputs
-        image = image / 128.0 - 1
+        image = image / 128.0
         assert tf.test.is_gpu_available()
+        image = tf.transpose(image, [0, 3, 1, 2])
 
-        def conv(name, l, channel, stride):
-            return Conv2D(name, l, channel, 3, stride=stride,
-                          nl=tf.identity, use_bias=False,
-                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        def add_layer(name, l):
+        def residual(name, l, increase_dim=False, first=False):
             shape = l.get_shape().as_list()
-            in_channel = shape[3]
-            with tf.variable_scope(name) as scope:
-                c = BatchNorm('bn1', l)
-                c = tf.nn.relu(c)
-                c = conv('conv1', c, self.growthRate, 1)
-                l = tf.concat([c, l], 3)
-            return l
+            in_channel = shape[1]
 
-        def add_transition(name, l):
-            shape = l.get_shape().as_list()
-            in_channel = shape[3]
-            with tf.variable_scope(name) as scope:
-                l = BatchNorm('bn1', l)
-                l = tf.nn.relu(l)
-                l = Conv2D('conv1', l, in_channel, 1, stride=1, use_bias=False, nl=tf.identity,
-                    W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-                l = custom_pooling2d('pool', l)
-            return l
+            if increase_dim:
+                out_channel = in_channel * 2
+            #     stride1 = 2
+            else:
+                out_channel = in_channel
+            
+            if first:
+                out_channel = out_channel * 8
 
+            stride1 = 1
 
-        def densenet(name):
-            l = conv('conv0', image, self.growthRate * 2, 1)
-            with tf.variable_scope('block1') as scope:
+            with tf.variable_scope(name):
+                if increase_dim:
+                    l = custom_pooling2d(l, 'pools', padding = 'VALID')
+                b1 = l if first else BNReLU(l)
+                c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
+                c2 = Conv2D('conv2', c1, out_channel)
+                if increase_dim:
+                    l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
+                if first:
+                    l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
 
-                for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l)
-                l = add_transition('transition1', l)
+                l = c2 + l
+                return l
 
-            with tf.variable_scope('block2') as scope:
+        with argscope([Conv2D, AvgPooling, MaxPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
+                argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
+                         W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
+            l = Conv2D('conv0', image, 16, nl=BNReLU)
+            l = residual('res1.0', l, first=True)
+            for k in range(1, self.n):
+                l = residual('res1.{}'.format(k), l)
+            # 32,c=16
 
-                for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l)
-                l = add_transition('transition2', l)
+            l = residual('res2.0', l, increase_dim=True)
+            for k in range(1, self.n):
+                l = residual('res2.{}'.format(k), l)
+            # 16,c=32
 
-            with tf.variable_scope('block3') as scope:
-
-                for i in range(self.N):
-                    l = add_layer('dense_layer.{}'.format(i), l)
-            l = BatchNorm('bnlast', l)
-            l = tf.nn.relu(l)
+            l = residual('res3.0', l, increase_dim=True)
+            for k in range(1, self.n):
+                l = residual('res3.' + str(k), l)
+            l = BNReLU('bnlast', l)
+            # 8,c=64
             l = GlobalAvgPooling('gap', l)
-            logits = FullyConnected('linear', l, out_dim=10, nl=tf.identity)
 
-            return logits
-
-        logits = densenet('densenet')
-        prob = tf.nn.softmax(logits, name='output')
+        logits = FullyConnected('linear', l, out_dim=10, nl=tf.identity)
+        tf.nn.softmax(logits, name='output')
 
         cost = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=label)
         cost = tf.reduce_mean(cost, name='cross_entropy_loss')
@@ -109,9 +110,8 @@ class Model(ModelDesc):
         add_moving_summary(tf.reduce_mean(wrong, name='train_error'))
 
         # weight decay on all W of fc layers
-        # wd_w = tf.train.exponential_decay(0.0002, get_global_step_var(),
-        #                                   480000, 0.2, True)
-        wd_w = 1e-4
+        wd_w = tf.train.exponential_decay(0.0005, get_global_step_var(),
+                                          10000, 0.75, True)
         wd_cost = tf.multiply(wd_w, regularize_cost('.*/W', tf.nn.l2_loss), name='wd_cost')
         add_moving_summary(cost, wd_cost)
 
@@ -119,26 +119,28 @@ class Model(ModelDesc):
         self.cost = tf.add_n([cost, wd_cost], name='cost')
 
     def _get_optimizer(self):
-        lr = tf.get_variable('learning_rate', initializer=0.1, trainable=False)
-        opt = tf.train.MomentumOptimizer(lr, 0.9, use_nesterov=True)
+        lr = tf.get_variable('learning_rate', initializer=0.01, trainable=False)
+        opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
+def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1]):
     max_inputs = MaxPooling('pool_max', inputs, 2)
     avg_inputs = AvgPooling('pool_avg', inputs, 2)
-    in_channel = inputs.get_shape().as_list()[3]
-    with tf.variable_scope(name):
-        patches = tf.extract_image_patches(inputs, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
-        pdims = patches.get_shape().as_list()
-        patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], in_channel, 4], name = 'repatches') 
+    inputs_nhwc = tf.transpose(inputs, [0, 2, 3, 1])
+    patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
+    pdims = patches.get_shape().as_list()
+    patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], inputs.get_shape().as_list()[1], 4]) 
+    patches = tf.transpose(patches, [0, 3, 1, 2, 4]) #NCWHP
+    with tf.variable_scope(var_scope):
         max_gate = tf.get_variable("max_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         avg_gate = tf.get_variable("avg_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
         avg_w = tf.reduce_sum(tf.multiply(avg_gate, patches), 4)
-        # max_b = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
-        # avg_b = tf.get_variable("avg_weights", (1), initializer=tf.constant_initializer(0.5))
-    p = tf.add(tf.multiply(max_inputs, max_w), tf.multiply(avg_inputs, avg_w), name = 'outputs')
-    return p
+        max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
+        avg_b = tf.get_variable("avg_b", (1), initializer=tf.constant_initializer(0.5))
+    outputs = tf.multiply(max_inputs, max_w+max_b) + tf.multiply(avg_inputs, avg_w+avg_b)
+    return outputs
+
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
@@ -165,9 +167,12 @@ def get_data(train_or_test):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
-    parser.add_argument('--depth',default=40, help='The depth of densenet')
+    parser.add_argument('-n', '--num_units',
+                        help='number of units in each stage',
+                        type=int, default=5)
     parser.add_argument('--load', help='load model')
     args = parser.parse_args()
+    NUM_UNITS = args.num_units
 
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
@@ -178,16 +183,16 @@ if __name__ == '__main__':
     dataset_test = get_data('test')
 
     config = TrainConfig(
-        model=Model(depth=args.depth),
+        model=Model(n=NUM_UNITS),
         dataflow=dataset_train,
         callbacks=[
             ModelSaver(max_to_keep = 1, keep_checkpoint_every_n_hours = 10000),
             InferenceRunner(dataset_test,
                             [ScalarStats('cost'), ClassificationError('wrong_vector')]),
             ScheduledHyperParamSetter('learning_rate',
-                                      [(1, 0.1), (150, 0.01), (225, 0.001)])
+                                      [(1, 0.1), (60, 0.01), (120, 0.001)])#, ScalarPrinter(whitelist=[".*pools.*"])
         ],
-        max_epoch=300,
+        max_epoch=150,
         session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
