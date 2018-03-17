@@ -74,24 +74,14 @@ class Model(ModelDesc):
                 l = AvgPooling('pool', l, 2)
             return l
 
-        def conv_gated(inputs, num_filters, name, size = 3, strides = [1,1,1,1]):
-            shape = inputs.get_shape().as_list()
-            in_channel = shape[3]
-            filters = tf.get_variable('filters', (size, size, num_filters), 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            ch_prefs = tf.get_variable('ch_prefs', (in_channel, num_filters), 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            kernel = tf.expand_dims(filters, axis = 2) #w,h,1,num_filters
-            kernel = kernel * ch_prefs #w,h,1,num_filters * in_channel,num_filters
-            #returns the updated filters and the filters expanded across the depth for convolution
-            
-            max_inputs = MaxPooling('pool_max', l, 2)
+        def conv_gated(l, num_filters, name, size = 3, strides = [1,1,1,1]):
+            max_inputs = tf.layers.max_pooling2d(inputs=l, pool_size=3, strides=strides[3], padding='SAME', name='pool_max')
             in_shape = l.get_shape().as_list()
             in_channel = l.get_shape().as_list()[3]
 
             weights_shape = (size, size, 1, 1)
             conv_area = size*size
-            p = tf.zeros([tf.shape(l)[0], in_shape[1], in_shape[2], num_filters])
+            p = []
             patches = tf.extract_image_patches(l, [1,size,size,1], strides, [1,1,1,1], 'SAME', name = 'patches')
             pdims = patches.get_shape().as_list()
             patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], in_channel, conv_area], name = 'repatches') 
@@ -106,10 +96,11 @@ class Model(ModelDesc):
                 pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                     initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
                 pcon = tf.tile(pcon, [1, 1, in_shape[3], 1])
-                p[:,:,:,k] = tf.reduce_sum((pw+pb)*tf.nn.depthwise_conv2d(l, pcon, strides, 'SAME'), 3)
-            p[:,:,:,num_filters] = tf.reduce_sum((max_w+max_b)*max_inputs, 3)    
+                p.append(tf.reduce_sum((pw+pb)*tf.nn.depthwise_conv2d(l, pcon, strides, 'SAME'), 3))
+            p.append(tf.reduce_sum((max_w+max_b)*max_inputs, 3))
+            p = tf.stack(p, axis=-1)
             ret = tf.identity(p, name = name)
-            return p
+            return ret
 
         def densenet(name):
             l = Conv2D('name', image, self.growthRate * 2, 3, stride=1,
