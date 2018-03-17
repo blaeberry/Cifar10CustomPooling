@@ -134,7 +134,7 @@ def custom_pooling2d(inputs, var_scope, padding, nf = 4, strides = [1, 1, 2, 2],
         p = tf.zeros([tf.shape(l)[0], in_shape[1], int(in_shape[2] // 2), int(in_shape[3]//2)])
 
         inputs_nhwc = tf.transpose(l, [0, 2, 3, 1])
-        patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
+        patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], [1,2,2,1], [1,1,1,1], 'VALID', name = 'patches')
         pdims = patches.get_shape().as_list()
         patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], l.get_shape().as_list()[1], 4]) 
         patches = tf.transpose(patches, [0, 3, 1, 2, 4]) #NCWHP
