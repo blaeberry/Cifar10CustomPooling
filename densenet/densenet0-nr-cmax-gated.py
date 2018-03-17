@@ -129,13 +129,13 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
         l = tf.nn.relu(l)
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
-        in_channel = inputs.get_shape().as_list()[3]
+        in_channel = l.get_shape().as_list()[3]
 
         weights_shape = (2, 2, 1, 1)
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
-        patches = tf.extract_image_patches(inputs, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
+        patches = tf.extract_image_patches(l, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
         pdims = patches.get_shape().as_list()
-        patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], in_channel, 4], name = 'repatches') 
+        patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], in_channel, 4], name = 'repatches') 
         max_gate = tf.get_variable("max_gate", [1,1,1,1,4])
         max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
 
@@ -145,7 +145,7 @@ def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.tile(pcon, [1, 1, in_shape[3], 1])
-            p = p + (pw)*tf.nn.depthwise_conv2d(inputs, pcon, strides, 'VALID')
+            p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, 'VALID')
         p = tf.add(max_w*max_inputs, p, name = "outputs")    
     return p
 
