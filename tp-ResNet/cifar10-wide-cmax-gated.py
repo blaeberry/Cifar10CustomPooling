@@ -133,16 +133,23 @@ def custom_pooling2d(inputs, var_scope, padding, nf = 4, strides = [1, 1, 2, 2],
         weights_shape = (2, 2, 1, 1)
         p = tf.zeros([tf.shape(l)[0], in_shape[1], int(in_shape[2] // 2), int(in_shape[3]//2)])
 
-        mw = tf.get_variable("mw", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        inputs_nhwc = tf.transpose(l, [0, 2, 3, 1])
+        patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
+        pdims = patches.get_shape().as_list()
+        patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], l.get_shape().as_list()[1], 4]) 
+        patches = tf.transpose(patches, [0, 3, 1, 2, 4]) #NCWHP
+
+        max_gate = tf.get_variable("max_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        mw = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
         for k in range(nf):
-            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pgate = tf.get_variable('pgate{}'.format(k), [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pw = tf.reduce_sum(tf.multiply(pgate, patches), 4)
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.tile(pcon, [1, 1, in_shape[1], 1], name='tiled')
-            p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, padding, data_format=data_format, name='depthwise')
+            pcon = tf.tile(pcon, [1, 1, in_shape[1], 1], name='tiled{}'.format(k))
+            p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, padding, data_format=data_format, name='depthwise{}'.format(k))
         p = tf.add((mw)*max_inputs, p, name = "outputs")    
     return p
-
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
