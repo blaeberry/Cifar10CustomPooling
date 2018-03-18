@@ -28,7 +28,7 @@ To train:
     ./cifar10-resnet.py --gpu 0,1
 """
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 NUM_BLOCKS = 3
 
 class Model(ModelDesc):
@@ -82,9 +82,9 @@ class Model(ModelDesc):
             weights_shape = (size, size, 1, 1)
             conv_area = size*size
             p = []
-            patches = tf.extract_image_patches(l, [1,size,size,1], strides, [1,1,1,1], 'SAME', name = 'patches')
+            patches = tf.extract_image_patches(l, [1,size,size,1], strides, [1,1,1,1], 'SAME')
             pdims = patches.get_shape().as_list()
-            patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], in_channel, conv_area], name = 'repatches') 
+            patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], in_channel, conv_area]) 
             max_gate = tf.get_variable("max_gate", [1,1,1,1,conv_area])
             max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
             max_b = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
