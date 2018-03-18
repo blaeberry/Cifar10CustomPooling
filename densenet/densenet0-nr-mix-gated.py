@@ -133,8 +133,8 @@ def custom_pooling2d(name, inputs, nf = 4, size = 2, strides = [1, 2, 2, 1]):
         avg_gate = tf.get_variable("avg_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
         avg_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
-        max_w = tf.nn.depthwise_conv2d(l, max_gate, strides, 'VALID')
-        avg_w = tf.nn.depthwise_conv2d(l, avg_gate, strides, 'VALID')
+        max_w = tf.nn.depthwise_conv2d(inputs, max_gate, strides, 'VALID')
+        avg_w = tf.nn.depthwise_conv2d(inputs, avg_gate, strides, 'VALID')
     p = tf.add(tf.multiply(max_inputs, max_w), tf.multiply(avg_inputs, avg_w), name = 'outputs')
     return p
 
