@@ -123,20 +123,18 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9, use_nesterov=True)
         return opt
 
-def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
-    max_inputs = MaxPooling('pool_max', inputs, 2)
-    avg_inputs = AvgPooling('pool_avg', inputs, 2)
-    in_channel = inputs.get_shape().as_list()[3]
+def custom_pooling2d(name, inputs, nf = 4, size = 2, strides = [1, 2, 2, 1]):
     with tf.variable_scope(name):
-        patches = tf.extract_image_patches(inputs, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
-        pdims = patches.get_shape().as_list()
-        patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], in_channel, 4], name = 'repatches') 
-        max_gate = tf.get_variable("max_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        avg_gate = tf.get_variable("avg_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
-        avg_w = tf.reduce_sum(tf.multiply(avg_gate, patches), 4)
-        # max_b = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
-        # avg_b = tf.get_variable("avg_weights", (1), initializer=tf.constant_initializer(0.5))
+        max_inputs = MaxPooling('pool_max', inputs, size)
+        avg_inputs = AvgPooling('pool_avg', inputs, size)
+        in_channel = inputs.get_shape().as_list()[3]
+        weights_shape = (size, size, 1, 1)
+        max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        avg_gate = tf.get_variable("avg_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
+        avg_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
+        max_w = tf.nn.depthwise_conv2d(l, max_gate, strides, 'VALID')
+        avg_w = tf.nn.depthwise_conv2d(l, avg_gate, strides, 'VALID')
     p = tf.add(tf.multiply(max_inputs, max_w), tf.multiply(avg_inputs, avg_w), name = 'outputs')
     return p
 
