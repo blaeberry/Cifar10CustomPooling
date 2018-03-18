@@ -123,30 +123,27 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9, use_nesterov=True)
         return opt
 
-def custom_pooling2d(name, inputs, nf = 4, strides = [1, 2, 2, 1]):
+def custom_pooling2d(name, inputs, nf = 4, size = 2, strides = [1, 2, 2, 1]):
     with tf.variable_scope(name):
         l = BatchNorm('bn', inputs)
         l = tf.nn.relu(l)
-        max_inputs = MaxPooling('pool_max', l, 2)
-        in_shape = l.get_shape().as_list()
+        max_inputs = MaxPooling('pool_max', l, size)
         in_channel = l.get_shape().as_list()[3]
+        weights_shape = (size, size, 1, 1)
 
-        weights_shape = (2, 2, 1, 1)
-        p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
-        patches = tf.extract_image_patches(l, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
-        pdims = patches.get_shape().as_list()
-        patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], in_channel, 4], name = 'repatches') 
-        max_gate = tf.get_variable("max_gate", [1,1,1,1,4])
-        max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
-        max_b = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
+        max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
+        max_w = tf.nn.depthwise_conv2d(l, max_gate, strides, 'VALID')
+        max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
 
         for k in range(nf):
-            pgate = tf.get_variable('pgate{}'.format(k), [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pw = tf.reduce_sum(tf.multiply(pgate, patches), 4)
+            pgate = tf.get_variable("pgate{}".format(k), weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pgate = tf.tile(pgate, [1, 1, in_channel, 1])
+            pw = tf.nn.depthwise_conv2d(l, pgate, strides, 'VALID')
             pb = tf.get_variable('pb{}'.format(k), (1), initializer=tf.constant_initializer(0.2))
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.tile(pcon, [1, 1, in_shape[3], 1])
+            pcon = tf.tile(pcon, [1, 1, in_channel, 1])
             p = p + (pw+pb)*tf.nn.depthwise_conv2d(l, pcon, strides, 'VALID')
         p = tf.add((max_w+max_b)*max_inputs, p, name = "outputs")    
     return p
