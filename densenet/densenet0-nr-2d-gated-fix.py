@@ -28,7 +28,7 @@ To train:
     ./cifar10-resnet.py --gpu 0,1
 """
 
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 NUM_BLOCKS = 3
 
 class Model(ModelDesc):
@@ -98,6 +98,7 @@ class Model(ModelDesc):
                 p.append(tf.reduce_sum((pw+pb)*tf.nn.depthwise_conv2d(l, pcon, strides, 'SAME'), 3))
             p.append(tf.reduce_sum((max_w+max_b)*max_inputs, 3))
             p = tf.stack(p, axis=-1)
+            print(p.get_shape().as_list())
             ret = tf.identity(p, name = name)
             return ret
 
