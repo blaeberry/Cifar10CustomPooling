@@ -134,19 +134,17 @@ def custom_pooling2d(name, inputs, nf = 4, size = 2, strides = [1, 2, 2, 1]):
         max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
         max_w = tf.nn.depthwise_conv2d(l, max_gate, strides, 'VALID')
-        max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
         p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
 
         for k in range(nf):
             pgate = tf.get_variable("pgate{}".format(k), weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pgate = tf.tile(pgate, [1, 1, in_channel, 1])
             pw = tf.nn.depthwise_conv2d(l, pgate, strides, 'VALID')
-            pb = tf.get_variable('pb{}'.format(k), (1), initializer=tf.constant_initializer(0.2))
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.tile(pcon, [1, 1, in_channel, 1]) + pb
+            pcon = tf.tile(pcon, [1, 1, in_channel, 1])
             p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, 'VALID')
-        p = tf.add((max_w+max_b)*max_inputs, p, name = "outputs")    
+        p = tf.add(max_w*max_inputs, p, name = "outputs")    
     return p
 
 def get_data(train_or_test):

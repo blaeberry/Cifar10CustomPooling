@@ -123,30 +123,13 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9, use_nesterov=True)
         return opt
 
-def custom_pooling2d(name, inputs, nf = 4, size = 2, strides = [1, 2, 2, 1]):
+def custom_pooling2d(name, inputs, nf = 4, strides = [2, 2, 1]):
+    max_inputs = MaxPooling('pool_max', inputs, 3, strides = 2, padding = 'SAME')
+    avg_inputs = AvgPooling('pool_avg', inputs, 3, strides = 2, padding = 'SAME')
     with tf.variable_scope(name):
-        l = inputs
-        max_inputs = MaxPooling('pool_max', l, size)
-        in_shape = l.get_shape().as_list()
-        in_channel = in_shape[3]
-        weights_shape = (size, size, 1, 1)
-
-        max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
-        max_w = tf.nn.depthwise_conv2d(l, max_gate, strides, 'VALID')
-        max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
-        p = tf.zeros([tf.shape(l)[0], int(in_shape[1] // 2), int(in_shape[2] // 2), in_shape[3]])
-
-        for k in range(nf):
-            pgate = tf.get_variable("pgate{}".format(k), weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pgate = tf.tile(pgate, [1, 1, in_channel, 1])
-            pw = tf.nn.depthwise_conv2d(l, pgate, strides, 'VALID')
-            pb = tf.get_variable('pb{}'.format(k), (1), initializer=tf.constant_initializer(0.2))
-            pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
-                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.tile(pcon, [1, 1, in_channel, 1]) + pb
-            p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, 'VALID')
-        p = tf.add((max_w+max_b)*max_inputs, p, name = "outputs")    
+        max_weight = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
+        avg_weight = tf.get_variable("avg_weights", (1), initializer=tf.constant_initializer(0.5))
+        p = tf.add(tf.multiply(max_inputs, max_weight), tf.multiply(avg_inputs, avg_weight), name = 'outputs')
     return p
 
 def get_data(train_or_test):
