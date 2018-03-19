@@ -123,31 +123,29 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(inputs, var_scope, padding, nf = 4, strides = [1, 1, 2, 2], data_format='NCHW'):
+def custom_pooling2d(inputs, var_scope, padding, nf = 4, size = 2, strides = [1, 1, 2, 2], data_format='NCHW'):
     with tf.variable_scope(var_scope):
         l = BatchNorm('bn', inputs)
         l = tf.nn.relu(l)
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
+        in_channel = in_shape[1]
 
-        weights_shape = (2, 2, 1, 1)
+        weights_shape = (size, size, 1, 1)
         p = tf.zeros([tf.shape(l)[0], in_shape[1], int(in_shape[2] // 2), int(in_shape[3]//2)])
 
-        inputs_nhwc = tf.transpose(l, [0, 2, 3, 1])
-        patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], [1,2,2,1], [1,1,1,1], 'VALID', name = 'patches')
-        pdims = patches.get_shape().as_list()
-        patches = tf.reshape(patches, [tf.shape(l)[0], pdims[1], pdims[2], l.get_shape().as_list()[1], 4]) 
-        patches = tf.transpose(patches, [0, 3, 1, 2, 4]) #NCWHP
+        max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
+        mw = tf.nn.depthwise_conv2d(l, max_gate, strides, padding, data_format=data_format)
 
-        max_gate = tf.get_variable("max_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        mw = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
         for k in range(nf):
-            pgate = tf.get_variable('pgate{}'.format(k), [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pw = tf.reduce_sum(tf.multiply(pgate, patches), 4)
+            pgate = tf.get_variable('pgate{}'.format(k), weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pgate = tf.tile(pgate, [1, 1, in_channel, 1])
+            pw = tf.nn.depthwise_conv2d(l, pgate, strides, 'VALID', data_format=data_format)
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pcon = tf.tile(pcon, [1, 1, in_shape[1], 1], name='tiled{}'.format(k))
-            p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, padding, data_format=data_format, name='depthwise{}'.format(k))
+            pcon = tf.tile(pcon, [1, 1, in_channel, 1], name='tiled')
+            p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, padding, data_format=data_format, name='depthwise')
         p = tf.add((mw)*max_inputs, p, name = "outputs")    
     return p
 

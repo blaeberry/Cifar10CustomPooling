@@ -123,23 +123,22 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(inputs, var_scope, padding, strides = [1, 2, 2, 1]):
-    max_inputs = MaxPooling('pool_max', inputs, 2)
-    avg_inputs = AvgPooling('pool_avg', inputs, 2)
-    inputs_nhwc = tf.transpose(inputs, [0, 2, 3, 1])
-    patches = tf.extract_image_patches(inputs_nhwc, [1, 2, 2, 1], strides, [1,1,1,1], 'VALID', name = 'patches')
-    pdims = patches.get_shape().as_list()
-    patches = tf.reshape(patches, [tf.shape(inputs)[0], pdims[1], pdims[2], inputs.get_shape().as_list()[1], 4]) 
-    patches = tf.transpose(patches, [0, 3, 1, 2, 4]) #NCWHP
+def custom_pooling2d(inputs, var_scope, padding, size = 2, strides = [1, 1, 2, 2], data_format='NCHW'):
     with tf.variable_scope(var_scope):
-        max_gate = tf.get_variable("max_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        avg_gate = tf.get_variable("avg_gate", [1,1,1,1,4], initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        max_w = tf.reduce_sum(tf.multiply(max_gate, patches), 4)
-        avg_w = tf.reduce_sum(tf.multiply(avg_gate, patches), 4)
+        max_inputs = MaxPooling('pool_max', inputs, 2)
+        avg_inputs = AvgPooling('pool_avg', inputs, 2)
+        weights_shape = (size, size, 1, 1)
+        in_channel = inputs.get_shape().as_list()[1]
+        max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        avg_gate = tf.get_variable("avg_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
+        avg_gate = tf.tile(avg_gate, [1, 1, in_channel, 1])
+        max_w = tf.nn.depthwise_conv2d(inputs, max_gate, strides, 'VALID', data_format=data_format)
+        avg_w = tf.nn.depthwise_conv2d(inputs, avg_gate, strides, 'VALID', data_format=data_format)
         max_b = tf.get_variable("max_b", (1), initializer=tf.constant_initializer(0.5))
         avg_b = tf.get_variable("avg_b", (1), initializer=tf.constant_initializer(0.5))
-    outputs = tf.multiply(max_inputs, max_w+max_b) + tf.multiply(avg_inputs, avg_w+avg_b)
-    return outputs
+        p = tf.add(tf.multiply(max_inputs, max_w+max_b), tf.multiply(avg_inputs, avg_w+avg_b), name = 'outputs')
+    return p
 
 
 def get_data(train_or_test):
