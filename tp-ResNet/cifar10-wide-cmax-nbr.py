@@ -123,19 +123,23 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(inputs, var_scope, padding, size = 2, strides = [1, 1, 2, 2], data_format='NCHW'):
+def custom_pooling2d(inputs, var_scope, padding, nf = 4, strides = [1, 1, 2, 2], data_format='NCHW'):
     with tf.variable_scope(var_scope):
-        max_inputs = MaxPooling('pool_max', inputs, 2)
-        avg_inputs = AvgPooling('pool_avg', inputs, 2)
-        inputs_nhwc = tf.transpose(inputs, [0, 2, 3, 1])
-        weights_shape = (size, size, 1, 1)
-        max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        avg_gate = tf.get_variable("avg_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
-        avg_gate = tf.tile(avg_gate, [1, 1, in_channel, 1])
-        max_w = tf.nn.depthwise_conv2d(inputs, max_gate, strides, 'VALID', data_format=data_format)
-        avg_w = tf.nn.depthwise_conv2d(inputs, avg_gate, strides, 'VALID', data_format=data_format)
-        p = tf.add(tf.multiply(max_inputs, max_w), tf.multiply(avg_inputs, avg_w), name = 'outputs')
+        l = inputs
+        max_inputs = MaxPooling('pool_max', l, 2)
+        in_shape = l.get_shape().as_list()
+
+        weights_shape = (2, 2, 1, 1)
+        p = tf.zeros([tf.shape(l)[0], in_shape[1], int(in_shape[2] // 2), int(in_shape[3]//2)])
+
+        mw = tf.get_variable("mw", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        for k in range(nf):
+            pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
+                initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pcon = tf.tile(pcon, [1, 1, in_shape[1], 1], name='tiled')
+            p = p + (pw)*tf.nn.depthwise_conv2d(l, pcon, strides, padding, data_format=data_format, name='depthwise')
+        p = tf.add((mw)*max_inputs, p, name = "outputs")    
     return p
 
 
