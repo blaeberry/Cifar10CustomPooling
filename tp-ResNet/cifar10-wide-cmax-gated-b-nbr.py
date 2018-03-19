@@ -125,8 +125,7 @@ class Model(ModelDesc):
 
 def custom_pooling2d(inputs, var_scope, padding, nf = 4, size = 2, strides = [1, 1, 2, 2], data_format='NCHW'):
     with tf.variable_scope(var_scope):
-        l = BatchNorm('bn', inputs)
-        l = tf.nn.relu(l)
+        l = inputs
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
         in_channel = in_shape[1]
