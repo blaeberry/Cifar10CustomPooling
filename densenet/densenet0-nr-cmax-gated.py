@@ -128,7 +128,8 @@ def custom_pooling2d(name, inputs, nf = 4, size = 2, strides = [1, 2, 2, 1]):
         l = BatchNorm('bn', inputs)
         l = tf.nn.relu(l)
         max_inputs = MaxPooling('pool_max', l, size)
-        in_channel = l.get_shape().as_list()[3]
+        in_shape = l.get_shape().as_list()
+        in_channel = in_shape[3]
         weights_shape = (size, size, 1, 1)
 
         max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
