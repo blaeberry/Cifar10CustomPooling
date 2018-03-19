@@ -127,8 +127,8 @@ def custom_pooling2d(inputs, var_scope, padding, size = 2, strides = [1, 1, 2, 2
     with tf.variable_scope(var_scope):
         max_inputs = MaxPooling('pool_max', inputs, 2)
         avg_inputs = AvgPooling('pool_avg', inputs, 2)
-        inputs_nhwc = tf.transpose(inputs, [0, 2, 3, 1])
         weights_shape = (size, size, 1, 1)
+        in_channel = inputs.get_shape().as_list()[1]
         max_gate = tf.get_variable("max_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         avg_gate = tf.get_variable("avg_gate", weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         max_gate = tf.tile(max_gate, [1, 1, in_channel, 1])
