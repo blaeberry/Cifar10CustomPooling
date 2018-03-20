@@ -126,7 +126,7 @@ class Model(ModelDesc):
 def custom_pooling2d(name, inputs, nf = 4, size = 3, strides = [1, 2, 2, 1]):
     with tf.variable_scope(name):
         l = inputs
-        max_inputs = MaxPooling('pool_max', l, 2, padding='SAME')
+        max_inputs = tf.layers.max_pooling2d(l, pool_size=3, strides = 2, padding = 'SAME', name='pool_max')
         in_shape = l.get_shape().as_list()
         in_channel = in_shape[3]
         weights_shape = (size, size, 1, 1)

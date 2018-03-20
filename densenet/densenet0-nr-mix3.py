@@ -124,9 +124,9 @@ class Model(ModelDesc):
         return opt
 
 def custom_pooling2d(name, inputs, nf = 4, strides = [2, 2, 1]):
-    max_inputs = MaxPooling('pool_max', inputs, 3, strides = 2, padding = 'SAME')
-    avg_inputs = AvgPooling('pool_avg', inputs, 3, strides = 2, padding = 'SAME')
     with tf.variable_scope(name):
+        max_inputs = tf.layers.max_pooling2d(inputs, pool_size=3, strides = 2, padding = 'SAME', name='pool_max')
+        avg_inputs = tf.layers.average_pooling2d(inputs, pool_size=3, strides = 2, padding = 'SAME', name='pool_avg')
         max_weight = tf.get_variable("max_weights", (1), initializer=tf.constant_initializer(0.5))
         avg_weight = tf.get_variable("avg_weights", (1), initializer=tf.constant_initializer(0.5))
         p = tf.add(tf.multiply(max_inputs, max_weight), tf.multiply(avg_inputs, avg_weight), name = 'outputs')
