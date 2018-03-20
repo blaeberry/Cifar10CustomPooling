@@ -123,8 +123,8 @@ class Model(ModelDesc):
         opt = tf.train.MomentumOptimizer(lr, 0.9)
         return opt
 
-def custom_pooling2d(name, inputs, padding = "VALID", strides = [1, 1, 2, 2], data_format='NCHW'):
-    with tf.variable_scope(var_scope):
+def custom_pooling2d(name, inputs, padding = "VALID", nf = 4, strides = [1, 1, 2, 2], data_format='NCHW'):
+    with tf.variable_scope(name):
         l = inputs
         max_inputs = MaxPooling('pool_max', l, 2)
         in_shape = l.get_shape().as_list()
@@ -134,16 +134,16 @@ def custom_pooling2d(name, inputs, padding = "VALID", strides = [1, 1, 2, 2], da
         p = tf.zeros([tf.shape(l)[0], in_channel, int(in_shape[2] // 2), int(in_shape[3] // 2)])
 
         mb = tf.get_variable("mb", (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-        mw = tf.get_variable("mw", (in_channel), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+        mw = tf.get_variable("mw", (in_channel,1,1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
         for k in range(nf):
             pw = tf.get_variable('pw{}'.format(k), (1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-            pb = tf.get_variable('pb{}'.format(k), (in_channel), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
+            pb = tf.get_variable('pb{}'.format(k), (in_channel,1,1), initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.tile(pcon, [1, 1, in_channel, 1])
             p = p + (pb+pw)*tf.nn.depthwise_conv2d(inputs, pcon, strides, padding=padding, data_format=data_format)
         p = tf.add((mb+mw)*max_inputs, p, name = "outputs")    
-    return outputs
+    return p
 
 def get_data(train_or_test):
     isTrain = train_or_test == 'train'
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir()
+    logger.auto_set_dir(action='k')
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -196,7 +196,7 @@ if __name__ == '__main__':
                                       [(1, 0.1), (60, 0.01), (120, 0.001)])#, ScalarPrinter(whitelist=[".*pools.*"])
         ],
         max_epoch=150,
-        session_init=SaverRestore(args.load) if args.load else None
+        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))

@@ -140,7 +140,7 @@ def custom_pooling2d(inputs, var_scope, padding, nf = 4, size = 3, strides = [1,
         for k in range(nf):
             pgate = tf.get_variable('pgate{}'.format(k), weights_shape, initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pgate = tf.tile(pgate, [1, 1, in_channel, 1])
-            pw = tf.nn.depthwise_conv2d(l, pgate, strides, 'VALID', data_format=data_format)
+            pw = tf.nn.depthwise_conv2d(l, pgate, strides, 'SAME', data_format=data_format)
             pcon = tf.get_variable('pcon{}'.format(k), weights_shape, 
                 initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
             pcon = tf.tile(pcon, [1, 1, in_channel, 1], name='tiled')

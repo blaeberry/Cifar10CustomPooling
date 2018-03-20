@@ -67,14 +67,16 @@ class Model(ModelDesc):
             with tf.variable_scope(name):
                 b1 = l if first else BNReLU(l)
                 if increase_dim:
-                    c1 = BNReLU(custom_pooling2d(l, 'pools', padding = 'VALID'))
+                    with tf.variable_scope('scale'):
+                    	c1 = BNReLU(custom_pooling2d(l, 'pools', padding = 'VALID'))
                 else:
                     c1 = Conv2D('conv1', b1, out_channel, stride=stride1, nl=BNReLU)
                 c2 = Conv2D('conv2', c1, out_channel)
                 if increase_dim:
+                    with tf.variable_scope('res'):
+                        l = AvgPooling('pool', l, 2)
                     l = tf.pad(l, [[0, 0], [in_channel // 2, in_channel // 2], [0, 0], [0, 0]])
                 if first:
-                    l = AvgPooling('resPool', l, 2)
                     l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
 
                 l = c2 + l
@@ -170,7 +172,7 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir()
+    logger.auto_set_dir(action='k')
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -186,7 +188,7 @@ if __name__ == '__main__':
                                       [(1, 0.1), (60, 0.01), (120, 0.001)])#, ScalarPrinter(whitelist=[".*pools.*"])
         ],
         max_epoch=150,
-        session_init=SaverRestore(args.load) if args.load else None
+        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
