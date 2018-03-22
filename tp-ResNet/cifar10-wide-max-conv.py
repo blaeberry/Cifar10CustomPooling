@@ -50,10 +50,10 @@ class Model(ModelDesc):
         assert tf.test.is_gpu_available()
         image = tf.transpose(image, [0, 3, 1, 2])
         
-        def add_max(conv_out, conv_in):
-            max_out = tf.layers.max_pooling2d(conv_in, pool_size=3, strides = 1,
+        def add_max(conv_out, conv_in, strides=1):
+            max_out = tf.layers.max_pooling2d(conv_in, pool_size=3, strides = strides,
                 padding = 'SAME', data_format = 'channels_first', name='pool_max')
-            max_out = tf.reduce_sum(max_out, axis = 1, name="max_conv_out")
+            max_out = tf.reduce_sum(max_out, axis = 1, keep_dims=True, name="max_conv_out")
             output = tf.concat([conv_out, max_out], axis=1, name='max_concat')
             return output
 
@@ -73,8 +73,9 @@ class Model(ModelDesc):
 
             with tf.variable_scope(name):
                 b1 = l if first else BNReLU(l)
-                c1 = Conv2D('conv1', b1, out_channel-1, stride=stride1)
-                c1 = BNReLU(add_max(c1, b1))
+                with tf.variable_scope('first'):
+                    c1 = Conv2D('conv1', b1, out_channel-1, stride=stride1)
+                    c1 = BNReLU(add_max(c1, b1, stride1))
                 c2 = Conv2D('conv2', c1, out_channel-1)
                 c2 = add_max(c2, c1)
                 if first:

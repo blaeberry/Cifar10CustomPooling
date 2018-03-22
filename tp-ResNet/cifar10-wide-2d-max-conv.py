@@ -66,10 +66,10 @@ class Model(ModelDesc):
             #returns the updated filters and the filters expanded across the depth for convolution
             return kernel
 
-        def add_max(conv_out, conv_in):
-            max_out = tf.layers.max_pooling2d(conv_in, pool_size=3, strides = 1,
+        def add_max(conv_out, conv_in, strides=1):
+            max_out = tf.layers.max_pooling2d(conv_in, pool_size=3, strides = strides,
                 padding = 'SAME', data_format = 'channels_first', name='pool_max')
-            max_out = tf.reduce_sum(max_out, axis = 1, name="max_conv_out")
+            max_out = tf.reduce_sum(max_out, axis = 1, keep_dims=True, name="max_conv_out")
             output = tf.concat([conv_out, max_out], axis=1, name='max_concat')
             return output
 
@@ -94,7 +94,7 @@ class Model(ModelDesc):
                 kernel = expand_filters(out_channel-1, in_channel)
                 with tf.variable_scope('first'):
                     c1 = conv('conv1', b1, kernel, stride1)
-                    c1 = BNReLU(add_max(c1, b1))
+                    c1 = BNReLU(add_max(c1, b1, strides=stride1))
 
                 with tf.variable_scope('second'):
                     kernel = expand_filters(out_channel-1, out_channel)

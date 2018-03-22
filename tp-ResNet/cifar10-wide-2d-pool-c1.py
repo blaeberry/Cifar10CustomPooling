@@ -69,7 +69,7 @@ class Model(ModelDesc):
         def custom_pooling2d(name, inputs, padding = "SAME", nf = 4, strides = [1, 1, 1, 1], data_format='NCHW'):
             with tf.variable_scope(name):
                 l = inputs
-                max_out = tf.layers.max_pooling2d(conv_in, pool_size=3, strides = strides[2],
+                max_inputs = tf.layers.max_pooling2d(l, pool_size=3, strides = strides[2],
                     padding = 'SAME', data_format = 'channels_first', name='pool_max')
                 in_shape = l.get_shape().as_list()
                 in_channel = in_shape[1]
@@ -108,7 +108,10 @@ class Model(ModelDesc):
                 b1 = l if first else BNReLU(l)
 
                 with tf.variable_scope('first'):
-                    c1 = BNReLU(custom_pooling2d('pool', b1, strides=stride1))
+                    c1 = custom_pooling2d('pool', b1, strides=stride1)
+                    if increase_dim or first:
+                        c1 = Conv2D('dim_incr', c1, out_channel, kernel_shape=1)
+                    c1 = BNReLU(c1) 
 
                 with tf.variable_scope('second'):
                     kernel = expand_filters(out_channel, out_channel)
@@ -126,7 +129,6 @@ class Model(ModelDesc):
         with argscope([Conv2D, AvgPooling, BatchNorm, GlobalAvgPooling], data_format='NCHW'), \
                 argscope(Conv2D, nl=tf.identity, use_bias=False, kernel_shape=3,
                          W_init=tf.variance_scaling_initializer(scale=2.0, mode='fan_out')):
-            kernel = expand_filters(16, 3)
             l = Conv2D('conv0', image, 16, nl=BNReLU)
             l = residual('res1.0', l, first=True)
             for k in range(1, self.n):

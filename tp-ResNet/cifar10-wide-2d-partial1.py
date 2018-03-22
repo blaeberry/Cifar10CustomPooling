@@ -92,7 +92,7 @@ class Model(ModelDesc):
                         initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
                     pw_filters = tf.get_variable('pw_filters', (1, 1, out_channel, out_channel), 
                         initializer=tf.variance_scaling_initializer(scale=2.0, mode='fan_out'))
-                    c2 = tf.nn.separable_conv2d(c1, dw_filters, pw_filters, [1,1,1,1], padding='SAME')
+                    c2 = tf.nn.separable_conv2d(c1, dw_filters, pw_filters, [1,1,1,1], padding='SAME', data_format='NCHW')
                 
                 if first:
                     l = tf.pad(l, [[0, 0], [int(in_channel*3.5), int(in_channel*3.5)], [0, 0], [0, 0]])
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     if args.gpu:
         os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    logger.auto_set_dir()
+    logger.auto_set_dir(action='k')
 
     dataset_train = get_data('train')
     dataset_test = get_data('test')
@@ -201,7 +201,7 @@ if __name__ == '__main__':
                                       [(1, 0.1), (60, 0.01), (120, 0.001)])
         ],
         max_epoch=150,
-        session_init=SaverRestore(args.load) if args.load else None
+        session_init=SaverRestore(logger.get_logger_dir() + '/checkpoint') if tf.gfile.Exists(logger.get_logger_dir() + '/checkpoint') else None
     )
     nr_gpu = max(get_nr_gpu(), 1)
     launch_train_with_config(config, SyncMultiGPUTrainerParameterServer(nr_gpu))
