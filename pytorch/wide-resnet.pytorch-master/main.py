@@ -79,8 +79,11 @@ def getNetwork(args):
     elif (args.net_type == 'wide-resnet'):
         net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-'+str(args.depth)+'x'+str(args.widen_factor)
+    elif (args.net_type == 'wide-resnet-2d'):
+        net = Wide_ResNet_2D(args.depth, args.widen_factor, args.dropout, num_classes)
+        file_name = 'wide-resnet-2d-'+str(args.depth)+'x'+str(args.widen_factor)
     else:
-        print('Error : Network should be either [LeNet / VGGNet / ResNet / Wide_ResNet')
+        print('Error : Network should be either [LeNet / VGGNet / ResNet / Wide_ResNet / wide-resnet-2d')
         sys.exit(0)
 
     return net, file_name
