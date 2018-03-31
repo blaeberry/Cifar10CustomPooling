@@ -81,19 +81,24 @@ def getNetwork(args):
         file_name = 'resnet-'+str(args.depth)
     elif (args.net_type == 'wide-resnet'):
         net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, num_classes)
-        file_name = 'wide-resnet-'+str(args.depth)+'x'+str(args.widen_factor)
+        file_name = 'wide-resnet-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d'):
         net = Wide_ResNet_2D(args.depth, args.widen_factor, args.dropout, num_classes)
-        file_name = 'wide-resnet-2d-'+str(args.depth)+'x'+str(args.widen_factor)
+        file_name = 'wide-resnet-2d-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-resize-norm'):
         net = Wide_ResNet_2D_Resize_Norm(args.depth, args.widen_factor, args.dropout, num_classes)
-        file_name = 'wide-resnet-2d-resize-norm'+str(args.depth)+'x'+str(args.widen_factor)
+        file_name = 'wide-resnet-2d-resize-norm-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-resize-avg'):
         net = Wide_ResNet_2D_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
-        file_name = 'wide-resnet-2d-resize-avg'+str(args.depth)+'x'+str(args.widen_factor)
+        file_name = 'wide-resnet-2d-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-avg'):
         net = Wide_ResNet_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
-        file_name = 'wide-resnet-avg'+str(args.depth)+'x'+str(args.widen_factor)
+        file_name = 'wide-resnet-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
     else:
         print('Error : Network should be either [LeNet / VGGNet / ResNet / Wide_ResNet / ... ')
         sys.exit(0)
