@@ -86,6 +86,9 @@ def getNetwork(args):
     elif (args.net_type == 'wide-resnet-2d-resize-norm'):
         net = Wide_ResNet_2D_Resize_Norm(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-resize-norm'+str(args.depth)+'x'+str(args.widen_factor)
+    elif (args.net_type == 'wide-resnet-2d-resize-avg'):
+        net = Wide_ResNet_2D_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
+        file_name = 'wide-resnet-2d-resize-avg'+str(args.depth)+'x'+str(args.widen_factor)
     elif (args.net_type == 'wide-resnet-avg'):
         net = Wide_ResNet_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-avg'+str(args.depth)+'x'+str(args.widen_factor)
