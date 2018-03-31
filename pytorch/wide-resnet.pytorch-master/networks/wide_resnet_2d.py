@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
-from .utils import _pair
+from torch.nn.modules.utils import _pair
 
 import sys
 import numpy as np
+import math
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=True)
@@ -15,7 +16,8 @@ def conv_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
         init.xavier_uniform(m.weight, gain=np.sqrt(2))
-        init.xavier_uniform(m.chpref, gain=np.sqrt(2))
+        if hasattr(m, 'chpref'):
+            init.xavier_uniform(m.chpref, gain=np.sqrt(2))
         init.constant(m.bias, 0)
     elif classname.find('BatchNorm') != -1:
         init.constant(m.weight, 1)
@@ -23,14 +25,14 @@ def conv_init(m):
 
 #need to make sure that class has 'Conv' in the name
 class ConvCust(nn.Module):
-    def __init__(self, in_planes, out_planes, stride=1, kernel_size=3, padding=1, bias=True):
-        super(custom_conv, self).__init__()
+    def __init__(self, in_planes, out_planes, stride=1, kernel_size=3, padding=0, bias=True):
+        super(ConvCust, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
         self.stride = _pair(stride)
         self.padding = _pair(padding)
-        self.weight = nn.Parameter(torch.Tensor(out_planes, 1, *kernel_size))
+        self.weight = nn.Parameter(torch.Tensor(out_planes, 1, *self.kernel_size))
         self.chpref = nn.Parameter(torch.Tensor(in_planes, 1, 1))
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_planes))
@@ -88,7 +90,7 @@ class wide_basic(nn.Module):
 
 class Wide_ResNet_2D(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
-        super(Wide_ResNet, self).__init__()
+        super(Wide_ResNet_2D, self).__init__()
         self.in_planes = 16
 
         assert ((depth-4)%6 ==0), 'Wide-resnet depth should be 6n+4'
@@ -128,7 +130,7 @@ class Wide_ResNet_2D(nn.Module):
         return out
 
 if __name__ == '__main__':
-    net=Wide_ResNet(28, 10, 0.3, 10)
+    net=Wide_ResNet_2D(28, 10, 0.3, 10)
     y = net(Variable(torch.randn(1,3,32,32)))
 
     print(y.size())
