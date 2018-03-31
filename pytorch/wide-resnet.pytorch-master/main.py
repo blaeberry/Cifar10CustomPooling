@@ -18,6 +18,7 @@ import datetime
 
 from networks import *
 from torch.autograd import Variable
+from summary import summary
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR-10 Training')
 parser.add_argument('--lr', default=0.1, type=float, help='learning_rate')
@@ -144,6 +145,9 @@ if use_cuda:
     cudnn.benchmark = True
 
 criterion = nn.CrossEntropyLoss()
+
+print('\n| Model Information Below... ')
+summary()
 
 # Training
 def train(epoch):
