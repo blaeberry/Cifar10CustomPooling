@@ -147,7 +147,8 @@ if use_cuda:
 criterion = nn.CrossEntropyLoss()
 
 print('\n| Model Information Below... ')
-summary()
+test_in, _ = testset[0]
+summary(list(test_in.size()), net)
 
 # Training
 def train(epoch):
