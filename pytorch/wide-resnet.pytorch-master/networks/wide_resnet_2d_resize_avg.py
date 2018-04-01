@@ -33,7 +33,9 @@ class ConvCust(nn.Module):
         self.stride = _pair(stride)
         self.padding = _pair(padding)
         self.weight = nn.Parameter(torch.Tensor(out_planes, 1, *self.kernel_size))
-        self.chpref = nn.Parameter(torch.Tensor(in_planes, 1, 1))
+        self.chpref = nn.Parameter(torch.Tensor(1, in_planes, 1, 1))
+        self.weight = self.weight.expand(out_planes, in_planes, *self.kernel_size)
+        self.chpref = self.chpref.expand(out_planes, in_planes, *self.kernel_size)
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_planes))
         else:
@@ -62,8 +64,8 @@ class ConvCust(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
-        conv = self.weight*self.chpref #get normal conv dimensions
-        return F.conv2d(x, conv, self.bias, self.stride, self.padding)
+        return F.conv2d(x, torch.mul(self.weight, self.chpref), 
+            self.bias, self.stride, self.padding)
 
 
 class wide_basic(nn.Module):
