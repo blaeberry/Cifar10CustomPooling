@@ -4,6 +4,7 @@ import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.modules.utils import _pair
+from torch.nn.modules.padding import ConstantPad3d
 
 import sys
 import numpy as np
@@ -34,8 +35,6 @@ class ConvCust(nn.Module):
         self.padding = _pair(padding)
         self.weight = nn.Parameter(torch.Tensor(out_planes, 1, *self.kernel_size))
         self.chpref = nn.Parameter(torch.Tensor(1, in_planes, 1, 1))
-        self.weight = self.weight.expand(out_planes, in_planes, *self.kernel_size)
-        self.chpref = self.chpref.expand(out_planes, in_planes, *self.kernel_size)
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_planes))
         else:
@@ -64,7 +63,9 @@ class ConvCust(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
-        return F.conv2d(x, torch.mul(self.weight, self.chpref), 
+        w = self.weight.repeat(1, self.in_channels, 1,1)
+        chpref = self.chpref.repeat(self.out_channels, 1, *self.kernel_size)
+        return F.conv2d(x, torch.mul(w, chpref), 
             self.bias, self.stride, self.padding)
 
 
