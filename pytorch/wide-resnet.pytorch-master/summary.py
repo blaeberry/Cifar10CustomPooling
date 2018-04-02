@@ -24,6 +24,8 @@ def summary(input_size, model):
                         summary[m_key]['trainable'] = False
                 if hasattr(module, 'bias'):
                     params +=  th.prod(th.LongTensor(list(module.bias.size())))
+                if hasattr(module, 'chpref'):
+                    params +=  th.prod(th.LongTensor(list(module.chpref.size())))
                 summary[m_key]['nb_params'] = params
                 
             if not isinstance(module, nn.Sequential) and \

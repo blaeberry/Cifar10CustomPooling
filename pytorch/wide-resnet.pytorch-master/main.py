@@ -27,6 +27,7 @@ parser.add_argument('--depth', default=28, type=int, help='depth of model')
 parser.add_argument('--widen_factor', default=10, type=int, help='width of model')
 parser.add_argument('--dropout', default=0.3, type=float, help='dropout_rate')
 parser.add_argument('--wd', default=5e-4, type=float, help='weight_decay')
+parser.add_argument('--g', default=1, type=int, help='groups in group conv')
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--dataset', default='cifar10', type=str, help='dataset = [cifar10/cifar100]')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
@@ -103,6 +104,10 @@ def getNetwork(args):
         net = Wide_ResNet_2D_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+    elif (args.net_type == 'wide-resnet-2d-g-resize-avg'):
+        net = Wide_ResNet_2D_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes, args.g)
+        file_name = 'wide-resnet-2d-g-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-avg'):
         net = Wide_ResNet_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
