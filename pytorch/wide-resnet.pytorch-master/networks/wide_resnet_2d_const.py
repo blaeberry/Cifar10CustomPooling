@@ -33,7 +33,7 @@ class ConvCust(nn.Module):
         self.stride = _pair(stride)
         self.padding = _pair(padding)
         self.weight = nn.Parameter(torch.Tensor(out_planes, 1, *self.kernel_size))
-        self.chpref = nn.Parameter(torch.Tensor(in_planes, 1, 1))
+        self.chpref = nn.Parameter(torch.Tensor(out_planes, in_planes, 1, 1))
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_planes))
         else:
