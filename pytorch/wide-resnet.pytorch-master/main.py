@@ -88,6 +88,10 @@ def getNetwork(args):
         net = Wide_ResNet_2D(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+    elif (args.net_type == 'wide-resnet-2d-g'):
+        net = Wide_ResNet_2D_G(args.depth, args.widen_factor, args.dropout, num_classes, args.g)
+        file_name = 'wide-resnet-2d-g-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-normal'):
         net = Wide_ResNet_2D_Normal(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-normal-'+str(args.depth)+'x'+str(args.widen_factor) + \
