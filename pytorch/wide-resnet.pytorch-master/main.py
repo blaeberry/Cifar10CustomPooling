@@ -83,47 +83,47 @@ def getNetwork(args):
     elif (args.net_type == 'wide-resnet'):
         net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d'):
         net = Wide_ResNet_2D(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-g'):
         net = Wide_ResNet_2D_G(args.depth, args.widen_factor, args.dropout, num_classes, args.g)
         file_name = 'wide-resnet-2d-g-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-normal'):
         net = Wide_ResNet_2D_Normal(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-normal-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-const'):
         net = Wide_ResNet_2D_Const(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-const-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-resize-norm'):
         net = Wide_ResNet_2D_Resize_Norm(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-resize-norm-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-resize-avg'):
         net = Wide_ResNet_2D_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-g-resize-avg'):
         net = Wide_ResNet_2D_G_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes, args.g)
         file_name = 'wide-resnet-2d-g-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-g-resize-avg-shuffle'):
         net = Wide_ResNet_2D_G_Resize_Avg_Shuffle(args.depth, args.widen_factor, args.dropout, num_classes, args.g)
         file_name = 'wide-resnet-2d-g-resize-avg-shuffle-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d-g-resize-avg-noshuffle'):
         net = Wide_ResNet_2D_G_Resize_Avg_NoShuffle(args.depth, args.widen_factor, args.dropout, num_classes, args.g)
         file_name = 'wide-resnet-2d-g-resize-avg-noshuffle-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-g'+str(args.g)+'-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-avg'):
         net = Wide_ResNet_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     else:
         print('Error : Network should be either [LeNet / VGGNet / ResNet / Wide_ResNet / ... ')
         sys.exit(0)
