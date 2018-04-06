@@ -5,6 +5,7 @@ from __future__ import division
 
 import argparse
 import os
+import errno
 import shutil
 import time
 import math
@@ -403,8 +404,16 @@ def save_checkpoint(state, args, is_best, filename, result):
     model_filename = os.path.join(model_dir, filename)
     latest_filename = os.path.join(model_dir, 'latest.txt')
     best_filename = os.path.join(model_dir, 'model_best.pth.tar')
-    os.makedirs(args.savedir, exist_ok=True)
-    os.makedirs(model_dir, exist_ok=True)
+    try:
+        os.makedirs(args.savedir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+    try:
+        os.makedirs(model_dir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
     print("=> saving checkpoint '{}'".format(model_filename))
     with open(result_filename, 'a') as fout:
         fout.write(result)

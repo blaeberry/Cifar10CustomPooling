@@ -206,7 +206,7 @@ def train(epoch):
     optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, 
                             nesterov = args.nesterov, weight_decay=args.wd)
 
-    print('\n=> Training Epoch #%d, LR=%.4f' %(epoch, cf.learning_rate(args.lr, epoch)))
+    print('\n=> Training Epoch #%d, LR=%.4f' %(epoch, lr))
     for batch_idx, (inputs, targets) in enumerate(trainloader):
         if use_cuda:
             inputs, targets = inputs.cuda(), targets.cuda() # GPU settings

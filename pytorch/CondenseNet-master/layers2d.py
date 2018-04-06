@@ -3,11 +3,13 @@ from __future__ import unicode_literals
 from __future__ import print_function
 from __future__ import division
 
+import math
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
-
+from torch.nn.modules.utils import _pair
 
 class LearnedGroupConv(nn.Module):
     global_progress = 0.0
@@ -50,7 +52,7 @@ class LearnedGroupConv(nn.Module):
         chpref = (self.conv.chpref+self.conv.bias) * self.mask
         weight = self.conv.weight*chpref
         return F.conv2d(x, weight, None, self.conv.stride,
-                        self.conv.padding, self.conv.dilation, 1)
+                        self.conv.padding, 1, 1)
 
     def _check_drop(self):
         progress = LearnedGroupConv.global_progress
