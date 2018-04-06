@@ -125,6 +125,14 @@ def getNetwork(args):
         net = Wide_ResNet_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
+    elif (args.net_type == 'wide-resnet-2d-dp-resize-avg'):
+        net = Wide_ResNet_2D_DP_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
+        file_name = 'wide-resnet-2d-dp-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
+    elif (args.net_type == 'wide-resnet-2d-pd-resize-avg'):
+        net = Wide_ResNet_2D_PD_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes)
+        file_name = 'wide-resnet-2d-pd-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     else:
         print('Error : Network should be either [LeNet / VGGNet / ResNet / Wide_ResNet / ... ')
         sys.exit(0)
