@@ -32,6 +32,7 @@ parser.add_argument('--nesterov', default=True, type=bool, help='nesterov moment
 parser.add_argument('--dataset', default='cifar10', type=str, help='dataset = [cifar10/cifar100]')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
 parser.add_argument('--testOnly', '-t', action='store_true', help='Test mode with the saved model')
+parser.add_argument('--cosine', '-cos', action='store_true', help='Run cosine learning decay')
 args = parser.parse_args()
 
 # Hyper Parameter settings
@@ -197,7 +198,12 @@ def train(epoch):
     train_loss = 0
     correct = 0
     total = 0
-    optimizer = optim.SGD(net.parameters(), lr=cf.learning_rate(args.lr, epoch), momentum=0.9, 
+
+    if args.cosine:
+        lr = cf.learning_rate_cos(args.lr, epoch)
+    else:
+        lr = cf.learning_rate(args.lr, epoch)
+    optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, 
                             nesterov = args.nesterov, weight_decay=args.wd)
 
     print('\n=> Training Epoch #%d, LR=%.4f' %(epoch, cf.learning_rate(args.lr, epoch)))

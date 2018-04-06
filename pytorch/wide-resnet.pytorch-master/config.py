@@ -30,6 +30,12 @@ def learning_rate(init, epoch):
 
     return init*math.pow(0.2, optim_factor)
 
+def learning_rate_cos(init, epoch):
+    T_total = num_epochs
+    T_cur = epoch
+    lr = 0.5 * init * (1 + math.cos(math.pi * T_cur / T_total))
+    return lr
+
 def get_hms(seconds):
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
