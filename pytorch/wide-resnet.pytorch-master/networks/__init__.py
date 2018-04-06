@@ -9,6 +9,8 @@ from .wide_resnet_2d_g import *
 from .wide_resnet_2d_const import *
 from .wide_resnet_2d_resize_norm import *
 from .wide_resnet_2d_resize_avg import *
+from .wide_resnet_2d_dp_resize_avg import *
+from .wide_resnet_2d_pd_resize_avg import *
 from .wide_resnet_2d_g_resize_avg import *
 from .wide_resnet_2d_g_resize_avg_shuffle import *
 from .wide_resnet_2d_g_resize_avg_noshuffle import *
