@@ -42,11 +42,11 @@ class ConvCust(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        n = self.out_planes
+        n = self.out_channels
         for k in self.kernel_size:
             n *= k
         stdv = 1. / math.sqrt(n)
-        stdv2 = 1. / math.sqrt(self.out_planes)
+        stdv2 = 1. / math.sqrt(self.out_channels)
         self.dw.data.uniform_(-stdv, stdv)
         self.pw.data.uniform_(-stdv2, stdv2)
         if self.bias is not None:
