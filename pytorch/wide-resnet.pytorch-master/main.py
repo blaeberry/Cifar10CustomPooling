@@ -187,7 +187,8 @@ if args.resume:
 else:
     print('| Building net type [' + args.net_type + ']...')
     net, file_name = getNetwork(args)
-    net.apply(conv_init)
+    print(globals())
+    net.apply(getattr(globals()[net.__module__], 'conv_init'))
 
 if use_cuda:
     net.cuda()

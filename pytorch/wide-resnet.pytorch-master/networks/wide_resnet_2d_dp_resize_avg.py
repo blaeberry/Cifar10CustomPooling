@@ -16,15 +16,16 @@ def conv3x3(in_planes, out_planes, stride=1):
 def conv_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
-        init.xavier_uniform(m.weight, gain=np.sqrt(2))
-        if hasattr(m, 'dw'):
-            init.xavier_uniform(m.dw, gain=np.sqrt(2))
-        if hasattr(m, 'pw'):
-            init.xavier_uniform(m.pw, gain=np.sqrt(2))
-        init.constant(m.bias, 0)
+	if hasattr(m, 'weight'):
+	    init.xavier_uniform(m.weight, gain=np.sqrt(2))
+	if hasattr(m, 'dw'):
+	    init.xavier_uniform(m.dw, gain=np.sqrt(2))
+	if hasattr(m, 'pw'):
+	    init.xavier_uniform(m.pw, gain=np.sqrt(2))
+	init.constant(m.bias, 0)
     elif classname.find('BatchNorm') != -1:
-        init.constant(m.weight, 1)
-        init.constant(m.bias, 0)
+	init.constant(m.weight, 1)
+	init.constant(m.bias, 0)
 
 #need to make sure that class has 'Conv' in the name
 class ConvCust(nn.Module):
