@@ -19,13 +19,13 @@ class _DenseLayer(nn.Module):
         self.group_1x1 = args.group_1x1
         self.group_3x3 = args.group_3x3
         ### 1x1 conv i --> b*k
-        self.conv_1 = LearnedGroupConv(in_channels, args.bottleneck * growth_rate,
+        self.conv_1 = LearnedGroupConv(in_channels, growth_rate,
                                        kernel_size=1, groups=self.group_1x1,
                                        condense_factor=args.condense_factor,
                                        dropout_rate=args.dropout_rate)
         ### 3x3 conv b*k --> k
-        self.conv_2 = Conv(args.bottleneck * growth_rate, growth_rate,
-                           kernel_size=3, padding=1, groups=args.bottleneck * growth_rate)
+        self.conv_2 = Conv(growth_rate, growth_rate,
+                           kernel_size=3, padding=1, groups=growth_rate)
 
     def forward(self, x):
         x_ = x
