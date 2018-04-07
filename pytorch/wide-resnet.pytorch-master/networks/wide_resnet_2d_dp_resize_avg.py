@@ -39,7 +39,7 @@ class ConvCust(nn.Module):
         self.stride = _pair(stride)
         self.padding = _pair(padding)
         self.dw = nn.Parameter(torch.Tensor(out_planes, 1, *self.kernel_size))
-        self.pw = nn.Parameter(torch.Tensor(out_planes, in_planes, 1, 1))
+        self.pw = nn.Parameter(torch.Tensor(out_planes, out_planes, 1, 1))
         if bias:
             self.bias = nn.Parameter(torch.Tensor(out_planes))
         else:
@@ -70,7 +70,7 @@ class ConvCust(nn.Module):
 
     def forward(self, x):
         depthwise = F.conv2d(x, self.dw, None, self.stride, self.padding, groups = self.in_channels)
-        return F.conv2d(depthwise, self.pw, self.bias, self.stride, self.padding)
+        return F.conv2d(depthwise, self.pw, self.bias, 1, 0)
 
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1):

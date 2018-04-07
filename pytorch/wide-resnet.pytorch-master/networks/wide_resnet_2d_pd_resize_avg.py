@@ -68,8 +68,8 @@ class ConvCust(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
-        pointwise = F.conv2d(x, self.pw, self.bias, self.stride, self.padding)
-        return F.conv2d(pointwise, self.dw, None, self.stride, self.padding, groups = self.in_channels)
+        pointwise = F.conv2d(x, self.pw, self.bias, 1, 0)
+        return F.conv2d(pointwise, self.dw, None, self.stride, self.padding, groups = self.out_channels)
 
 
 class wide_basic(nn.Module):
