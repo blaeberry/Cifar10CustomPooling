@@ -84,16 +84,18 @@ class ConvCust(nn.Module):
         ybs = torch.split(self.yb, 1, dim=0)
         temp = []
         for yw, yb in zip(yws, ybs):
-            yw = yw.expand(self.in_planes, -1, -1, -1)
-            temp.append(F.conv2d(x, yw, yb, 1, 0, groups = self.in_planes)) #(n, out, 1, w)
+            yw = yw.repeat(self.in_channels, 1, 1, 1)
+            yb = yb.repeat(self.in_channels)
+            temp.append(F.conv2d(x, yw, yb, 1, 0, groups = self.in_channels)) #(n, out, 1, w)
         x = torch.cat(temp, dim = 2) #n, out, new_h, w
 
         xws = torch.split(self.xw, 1, dim=0)
         xbs = torch.split(self.xb, 1, dim=0)
         temp = []
         for xw, xb in zip(xws, xbs):
-            xw = xw.expand(self.in_planes, -1, -1, -1)
-            temp.append(F.conv2d(x, xw, xb, 1, 0, groups = self.in_planes)) #(n, out, h, 1)
+            xw = xw.repeat(self.in_channels, 1, 1, 1)
+            xb = xb.repeat(self.in_channels)
+            temp.append(F.conv2d(x, xw, xb, 1, 0, groups = self.in_channels)) #(n, out, h, 1)
         x = torch.cat(temp, dim = 3) #n, out, new_h, new_w
 
         x = F.conv2d(x, self.cw, self.cb, 1, self.padding) #n, new_out, new_h, new_w
