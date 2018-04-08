@@ -37,6 +37,7 @@ args = parser.parse_args()
 
 # Hyper Parameter settings
 use_cuda = torch.cuda.is_available()
+#use_cuda = False
 best_acc = 0
 start_epoch, num_epochs, batch_size, optim_type = cf.start_epoch, cf.num_epochs, cf.batch_size, cf.optim_type
 
@@ -223,25 +224,28 @@ def train(epoch):
 
     print('\n=> Training Epoch #%d, LR=%.4f' %(epoch, lr))
     for batch_idx, (inputs, targets) in enumerate(trainloader):
-        if use_cuda:
-            inputs, targets = inputs.cuda(), targets.cuda() # GPU settings
-        optimizer.zero_grad()
-        inputs, targets = Variable(inputs), Variable(targets)
-        outputs = net(inputs)               # Forward Propagation
-        loss = criterion(outputs, targets)  # Loss
-        loss.backward()  # Backward Propagation
-        optimizer.step() # Optimizer update
-
-        train_loss += loss.data[0]
-        _, predicted = torch.max(outputs.data, 1)
-        total += targets.size(0)
-        correct += predicted.eq(targets.data).cpu().sum()
-
-        sys.stdout.write('\r')
-        sys.stdout.write('| Epoch [%3d/%3d] Iter[%3d/%3d]\t\tLoss: %.4f Acc@1: %.3f%%'
-                %(epoch, num_epochs, batch_idx+1,
-                    (len(trainset)//batch_size)+1, loss.data[0], 100.*correct/total))
-        sys.stdout.flush()
+        #with torch.autograd.profiler.profile() as prof:
+        #with torch.autograd.profiler.emit_nvtx() as prof:
+	if use_cuda:
+	    inputs, targets = inputs.cuda(), targets.cuda() # GPU settings
+	optimizer.zero_grad()
+	inputs, targets = Variable(inputs), Variable(targets)
+	outputs = net(inputs)               # Forward Propagation
+	loss = criterion(outputs, targets)  # Loss
+	loss.backward()  # Backward Propagation
+	optimizer.step() # Optimizer update
+	
+	train_loss += loss.data[0]
+	_, predicted = torch.max(outputs.data, 1)
+	total += targets.size(0)
+	correct += predicted.eq(targets.data).cpu().sum()
+	
+	sys.stdout.write('\r')
+	sys.stdout.write('| Epoch [%3d/%3d] Iter[%3d/%3d]\t\tLoss: %.4f Acc@1: %.3f%%'
+	%(epoch, num_epochs, batch_idx+1,
+	(len(trainset)//batch_size)+1, loss.data[0], 100.*correct/total))
+	sys.stdout.flush()
+        #print(prof)
 
 def test(epoch):
     global best_acc

@@ -26,6 +26,14 @@ def summary(input_size, model):
                     params +=  th.prod(th.LongTensor(list(module.bias.size())))
                 if hasattr(module, 'chpref'):
                     params +=  th.prod(th.LongTensor(list(module.chpref.size())))
+                if hasattr(module, 'cw'):
+                    params +=  th.prod(th.LongTensor(list(module.cw.size())))
+                    params +=  th.prod(th.LongTensor(list(module.yw.size())))
+                    params +=  th.prod(th.LongTensor(list(module.xw.size())))
+                if hasattr(module, 'cb'):
+                    params +=  th.prod(th.LongTensor(list(module.cb.size())))
+                    params +=  th.prod(th.LongTensor(list(module.yb.size())))
+                    params +=  th.prod(th.LongTensor(list(module.xb.size())))
                 summary[m_key]['nb_params'] = params
                 
             if not isinstance(module, nn.Sequential) and \

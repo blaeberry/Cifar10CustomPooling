@@ -3,12 +3,12 @@ from .vggnet import *
 from .resnet import *
 from .wide_resnet import *
 from .wide_resnet_avg import *
-from .wide_resnet_1d import *
 from .wide_resnet_2d_normal import *
 from .wide_resnet_2d import *
 from .wide_resnet_2d_g import *
 from .wide_resnet_2d_const import *
 from .wide_resnet_2d_resize_norm import *
+from .wide_resnet_1d_resize_avg import *
 from .wide_resnet_2d_resize_avg import *
 from .wide_resnet_2d_dp_resize_avg import *
 from .wide_resnet_2d_pd_resize_avg import *

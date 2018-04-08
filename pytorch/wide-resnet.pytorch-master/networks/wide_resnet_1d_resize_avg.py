@@ -4,12 +4,13 @@ import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.modules.utils import _pair
+from torch.nn.modules.padding import ConstantPad3d
 
 import sys
 import numpy as np
 import math
 
-__all__ = ['Wide_ResNet_1D']
+__all__ = ['Wide_ResNet_1D_Resize_Avg']
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=True)
@@ -17,12 +18,15 @@ def conv3x3(in_planes, out_planes, stride=1):
 def conv_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
-        init.xavier_uniform(m.cw, gain=np.sqrt(2))
-        init.xavier_uniform(m.yw, gain=np.sqrt(2))
-        init.xavier_uniform(m.xw, gain=np.sqrt(2))
-        init.constant(m.cb, 0)
-        init.constant(m.yb, 0)
-        init.constant(m.xb, 0)
+        if hasattr(m, 'weight'):
+            init.xavier_uniform(m.weight, gain=np.sqrt(2))
+        if hasattr(m, 'cw'):
+	    init.xavier_uniform(m.cw, gain=np.sqrt(2))
+	    init.xavier_uniform(m.yw, gain=np.sqrt(2))
+	    init.xavier_uniform(m.xw, gain=np.sqrt(2))
+	    init.constant(m.cb, 0)
+	    init.constant(m.yb, 0)
+	    init.constant(m.xb, 0)
     elif classname.find('BatchNorm') != -1:
         init.constant(m.weight, 1)
         init.constant(m.bias, 0)
@@ -35,7 +39,7 @@ class ConvCust(nn.Module):
         self.in_channels = in_planes
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
-        self.stride = _pair(stride) #replacing stride with reduction operation
+        self.stride = stride #replacing stride with reduction operation
         self.padding = _pair(padding)
         self.width = width
         self.height = height
@@ -44,8 +48,8 @@ class ConvCust(nn.Module):
         self.xw = nn.Parameter(torch.Tensor(width//stride, width, 1, 1))
         if bias:
             self.cb = nn.Parameter(torch.Tensor(out_planes))
-            self.yb = nn.Parameter(torch.Tensor(height))
-            self.xb = nn.Parameter(torch.Tensor(width))
+            self.yb = nn.Parameter(torch.Tensor(height//stride))
+            self.xb = nn.Parameter(torch.Tensor(width//stride))
         else:
             self.register_parameter('bias', None)
         self.reset_parameters()
@@ -76,13 +80,21 @@ class ConvCust(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
-        x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
-        x = x.permute(0, 2, 3, 1) #N H W C
-        x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
-        x = x.permute(0, 2, 3, 1) #N W C H
-        x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
-        return x.permute(0, 2, 3, 1) #N C H W
-
+        #if self.stride > 1:
+	x = x.permute(0, 2, 3, 1).contiguous() #N H W C
+	x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
+	x = x.permute(0, 2, 3, 1).contiguous() #N W C H
+	x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
+	x = x.permute(0, 2, 3, 1).contiguous() #N C H W
+	x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
+        #else:
+	#    x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
+	#    x = x.permute(0, 2, 3, 1) #N H W C
+	#    x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
+	#    x = x.permute(0, 2, 3, 1) #N W C H
+	#    x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
+        #    x = x.permute(0, 2, 3, 1) #N C H W
+        return x
 
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, width=32, height=32):
@@ -110,9 +122,9 @@ class wide_basic(nn.Module):
 
         return out
 
-class Wide_ResNet_1D(nn.Module):
+class Wide_ResNet_1D_Resize_Avg(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes, width, height):
-        super(Wide_ResNet_1D, self).__init__()
+        super(Wide_ResNet_1D_Resize_Avg, self).__init__()
         self.in_planes = 16
         self.width = width
         self.height = height
@@ -157,7 +169,7 @@ class Wide_ResNet_1D(nn.Module):
         return out
 
 if __name__ == '__main__':
-    net=Wide_ResNet_1D(28, 10, 0.3, 10)
+    net=Wide_ResNet_1D_Resize_Avg(28, 10, 0.3, 10)
     y = net(Variable(torch.randn(1,3,32,32)))
 
     print(y.size())
