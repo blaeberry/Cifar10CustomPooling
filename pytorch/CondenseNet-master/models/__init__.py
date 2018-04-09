@@ -1,4 +1,5 @@
 from .densenet import DenseNet as densenet
+from .densenetre1d import DenseNet as densenetre1d
 from .condensenet import CondenseNet as condensenet
 from .condensenet2d import CondenseNet2d as condensenet2d
 from .condensenetdw import CondenseNetDW as condensenetdw
