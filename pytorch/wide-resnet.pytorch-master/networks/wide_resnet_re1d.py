@@ -3,9 +3,12 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torch.nn.modules.utils import _pair
+from torch.nn.modules.padding import ConstantPad3d
 
 import sys
 import numpy as np
+import math
 
 __all__ = ['Wide_ResNet_RE1D']
 
