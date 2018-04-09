@@ -85,7 +85,7 @@ class wide_basic(nn.Module):
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
         self.dropout = nn.Dropout(p=dropout_rate)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=True)
         self.custpool = nn.Sequential()
         if stride > 1:
             self.custpool = nn.Sequential(ConvCust(planes, planes, kernel_size=1, stride=stride, padding=0, 
