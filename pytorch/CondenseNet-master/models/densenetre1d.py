@@ -12,16 +12,16 @@ from layers import Conv
 from torch.nn.modules.utils import _pair
 from torch.nn.modules.padding import ConstantPad3d
 
-__all__ = ['DenseNet']
+__all__ = ['DenseNetRe1d']
 
 
 def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
-class ConvCust(nn.Module):
+class _ConvCust(nn.Module):
     def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=0, 
                 bias=True, width=32, height=32):
-        super(ConvCust, self).__init__()
+        super(_ConvCust, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
@@ -29,6 +29,7 @@ class ConvCust(nn.Module):
         self.padding = _pair(padding)
         self.width = width
         self.height = height
+        self.bias = bias
         self.yw = nn.Parameter(torch.Tensor(int(height*stride), height, 1, 1))
         self.xw = nn.Parameter(torch.Tensor(int(width*stride), width, 1, 1))
         if bias:
@@ -98,7 +99,7 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
-        self.pool = ConvCust(out_channels, out_channels, 
+        self.pool = _ConvCust(out_channels, out_channels, 
                              stride=0.5, width=width, height=height)
 
     def forward(self, x):
@@ -107,10 +108,10 @@ class _Transition(nn.Module):
         return x
 
 
-class DenseNet(nn.Module):
+class DenseNetRe1d(nn.Module):
     def __init__(self, args):
 
-        super(DenseNet, self).__init__()
+        super(DenseNetRe1d, self).__init__()
 
         self.width = 32
         self.height = 32
@@ -170,8 +171,8 @@ class DenseNet(nn.Module):
             trans = _Transition(in_channels=self.num_features,
                                 out_channels=out_features,
                                 args=self.args, 
-                                width=self.width//(2**(i+1)), 
-                                height=self.height//(2**(i+1)))
+                                width=self.width//(2**(i)), 
+                                height=self.height//(2**(i)))
             self.features.add_module('transition_%d' % (i + 1), trans)
             self.num_features = out_features
         else:
