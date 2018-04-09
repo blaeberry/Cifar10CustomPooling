@@ -3,14 +3,11 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
-from torch.nn.modules.utils import _pair
-from torch.nn.modules.padding import ConstantPad3d
 
 import sys
 import numpy as np
-import math
 
-__all__ = ['Wide_ResNet_1D_Resize_Avg']
+__all__ = ['Wide_ResNet_RE1D']
 
 def conv3x3(in_planes, out_planes, stride=1):
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=True)
@@ -32,7 +29,6 @@ def conv_init(m):
             init.constant(m.weight, 1)
             init.constant(m.bias, 0)
 
-#need to make sure that class has 'Conv' in the name
 class ConvCust(nn.Module):
     def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=0, 
                 bias=True, width=32, height=32):
@@ -81,32 +77,32 @@ class ConvCust(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
+        x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
         x = x.permute(0, 2, 3, 1).contiguous() #N H W C
         x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
         x = x.permute(0, 2, 3, 1).contiguous() #N W C H
         x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
         x = x.permute(0, 2, 3, 1).contiguous() #N C H W
-        x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
         return x
 
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1, width=32, height=32):
         super(wide_basic, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
-        self.conv1 = ConvCust(in_planes, planes, kernel_size=1, padding=0, 
-                                bias=True, width=width, height=height)
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
         self.dropout = nn.Dropout(p=dropout_rate)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = ConvCust(planes, planes, kernel_size=1, stride=stride, padding=0, 
+        if stride > 1:
+            self.conv2 = ConvCust(planes, planes, kernel_size=1, stride=stride, padding=0, 
                                 bias=True, width=width, height=height)
+        else:
+            self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
 
-        sequence = []
-        if stride != 1: 
-            sequence.append(nn.AvgPool2d(kernel_size=stride, stride=stride))
-        if in_planes != planes:
-            extra = planes-in_planes
-            sequence.append(ConstantPad3d((0, 0, 0, 0, 0, extra), 0))
-        self.shortcut = nn.Sequential(*sequence)
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_planes != planes:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=True),
+            )
 
     def forward(self, x):
         out = self.dropout(self.conv1(F.relu(self.bn1(x))))
@@ -115,9 +111,9 @@ class wide_basic(nn.Module):
 
         return out
 
-class Wide_ResNet_1D_Resize_Avg(nn.Module):
+class Wide_ResNet_RE1D(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes, width, height):
-        super(Wide_ResNet_1D_Resize_Avg, self).__init__()
+        super(Wide_ResNet_RE1D, self).__init__()
         self.in_planes = 16
         self.width = width
         self.height = height
@@ -162,7 +158,7 @@ class Wide_ResNet_1D_Resize_Avg(nn.Module):
         return out
 
 if __name__ == '__main__':
-    net=Wide_ResNet_1D_Resize_Avg(28, 10, 0.3, 10)
+    net=Wide_ResNet_RE1D(28, 10, 0.3, 10)
     y = net(Variable(torch.randn(1,3,32,32)))
 
     print(y.size())
