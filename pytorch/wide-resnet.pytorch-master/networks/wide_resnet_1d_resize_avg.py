@@ -28,9 +28,9 @@ def conv_init(m):
             init.constant(m.cb, 0)
             init.constant(m.yb, 0)
             init.constant(m.xb, 0)
-        elif classname.find('BatchNorm') != -1:
-            init.constant(m.weight, 1)
-            init.constant(m.bias, 0)
+    elif classname.find('BatchNorm') != -1:
+        init.constant(m.weight, 1)
+        init.constant(m.bias, 0)
 
 #need to make sure that class has 'Conv' in the name
 class ConvCust(nn.Module):
