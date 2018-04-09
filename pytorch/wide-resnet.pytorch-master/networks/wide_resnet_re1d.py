@@ -33,7 +33,7 @@ def conv_init(m):
         init.constant(m.bias, 0)
 
 class ConvCust(nn.Module):
-    def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=0, 
+    def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=1, 
                 bias=True, width=32, height=32):
         super(ConvCust, self).__init__()
         self.in_channels = in_planes
@@ -43,9 +43,9 @@ class ConvCust(nn.Module):
         self.padding = _pair(padding)
         self.width = width
         self.height = height
-        self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, 1, 1))
-        self.yw = nn.Parameter(torch.Tensor(height//stride, height, 1, 1))
-        self.xw = nn.Parameter(torch.Tensor(width//stride, width, 1, 1))
+        self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, *self.kernel_size))
+        self.yw = nn.Parameter(torch.Tensor(height//stride, height, *self.kernel_size))
+        self.xw = nn.Parameter(torch.Tensor(width//stride, width, *self.kernel_size))
         if bias:
             self.cb = nn.Parameter(torch.Tensor(out_planes))
             self.yb = nn.Parameter(torch.Tensor(height//stride))
@@ -89,14 +89,14 @@ class ConvCust(nn.Module):
         return x
 
 class wide_basic(nn.Module):
-    def __init__(self, in_planes, planes, dropout_rate, stride=1, width=32, height=32):
+    def __init__(self, in_planes, planes, dropout_rate, kernel=1, stride=1, width=32, height=32):
         super(wide_basic, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
         self.dropout = nn.Dropout(p=dropout_rate)
         self.bn2 = nn.BatchNorm2d(planes)
         if stride > 1:
-            self.conv2 = ConvCust(planes, planes, kernel_size=1, stride=stride, padding=0, 
+            self.conv2 = ConvCust(planes, planes, kernel_size=kernel, stride=stride, padding=1, 
                                 bias=True, width=width, height=height)
         else:
             self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
@@ -115,9 +115,10 @@ class wide_basic(nn.Module):
         return out
 
 class Wide_ResNet_RE1D(nn.Module):
-    def __init__(self, depth, widen_factor, dropout_rate, num_classes, width, height):
+    def __init__(self, depth, widen_factor, dropout_rate, num_classes, kernel, width, height):
         super(Wide_ResNet_RE1D, self).__init__()
         self.in_planes = 16
+        self.kernel_size = kernel
         self.width = width
         self.height = height
 
@@ -140,7 +141,7 @@ class Wide_ResNet_RE1D(nn.Module):
         layers = []
 
         for stride in strides:
-            layers.append(block(self.in_planes, planes, dropout_rate, stride, width, height))
+            layers.append(block(self.in_planes, planes, dropout_rate, self.kernel_size, stride, width, height))
             if stride == 2:
                 width = width // 2
                 height = height // 2
