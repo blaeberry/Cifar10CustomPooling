@@ -95,16 +95,17 @@ class wide_basic(nn.Module):
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
         self.dropout = nn.Dropout(p=dropout_rate)
         self.bn2 = nn.BatchNorm2d(planes)
-        if stride > 1:
-            self.conv2 = ConvCust(planes, planes, kernel_size=1, stride=0.75, padding=0, 
+        if stride != 1:
+            self.conv2 = ConvCust(planes, planes, kernel_size=1, stride=stride, padding=0, 
                                 bias=True, width=width, height=height)
         else:
-            self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
+            self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=True)
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, planes, kernel_size=1, stride=1, bias=True),
+                ConvCust(in_planes, planes, kernel_size=1, stride=stride, padding=0,
+                            bias=True, width=width, height=height)
             )
 
     def forward(self, x):
@@ -136,14 +137,16 @@ class Wide_ResNet_RE1D_Slow(nn.Module):
         self.linear = nn.Linear(nStages[3], num_classes)
 
     def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride, width, height):
-        strides = [stride, stride] + [1]*(num_blocks-2)
+        strides =  [1]*(num_blocks)
+        if stride != 1:
+            strides[0] = 0.75
+            strides[1] = 2.0/3.0
         layers = []
 
         for stride in strides:
             layers.append(block(self.in_planes, planes, dropout_rate, stride, width, height))
-            if stride == 2:
-                width = int(width * 0.75)
-                height = int(height * 0.75)
+            width = int(width * stride)
+            height = int(height * stride)
             self.in_planes = planes
 
         return nn.Sequential(*layers)
