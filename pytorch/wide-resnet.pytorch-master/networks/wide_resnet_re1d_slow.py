@@ -28,9 +28,9 @@ def conv_init(m):
             init.constant(m.cb, 0)
             init.constant(m.yb, 0)
             init.constant(m.xb, 0)
-        elif classname.find('BatchNorm') != -1:
-            init.constant(m.weight, 1)
-            init.constant(m.bias, 0)
+    elif classname.find('BatchNorm') != -1:
+        init.constant(m.weight, 1)
+        init.constant(m.bias, 0)
 
 class ConvCust(nn.Module):
     def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=0, 
