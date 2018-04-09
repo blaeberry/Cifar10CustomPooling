@@ -18,17 +18,77 @@ def conv3x3(in_planes, out_planes, stride=1):
 def conv_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
+        if hasattr(m, 'cw'):
+            init.constant(m.cb, 0)
+            init.xavier_uniform(m.cw, gain=np.sqrt(2))
         if hasattr(m, 'weight'):
             init.xavier_uniform(m.weight, gain=np.sqrt(2))
             init.constant(m.bias, 0)
-        elif hasattr(m, 'yw'):
+        if hasattr(m, 'yw'):
             init.xavier_uniform(m.yw, gain=np.sqrt(2))
             init.xavier_uniform(m.xw, gain=np.sqrt(2))
             init.constant(m.yb, 0)
             init.constant(m.xb, 0)
-        elif classname.find('BatchNorm') != -1:
+    elif classname.find('BatchNorm') != -1:
             init.constant(m.weight, 1)
             init.constant(m.bias, 0)
+
+class ConvCust1(nn.Module):
+    def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=0, 
+                bias=True, width=32, height=32):
+        super(ConvCust1, self).__init__()
+        self.in_channels = in_planes
+        self.out_channels = out_planes
+        self.kernel_size = _pair(kernel_size)
+        self.stride = stride #replacing stride with reduction operation
+        self.padding = _pair(padding)
+        self.width = width
+        self.height = height
+        self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, 1, 1))
+        self.yw = nn.Parameter(torch.Tensor(int(height*stride), height, 1, 1))
+        self.xw = nn.Parameter(torch.Tensor(int(width*stride), width, 1, 1))
+        if bias:
+            self.cb = nn.Parameter(torch.Tensor(out_planes))
+            self.yb = nn.Parameter(torch.Tensor(int(height*stride)))
+            self.xb = nn.Parameter(torch.Tensor(int(width*stride)))
+        else:
+            self.register_parameter('bias', None)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        n = self.in_channels
+        # for k in self.kernel_size:
+        #     n *= k
+        cstdv = 1. / math.sqrt(self.in_channels)
+        ystdv = 1. / math.sqrt(self.height)
+        xstdv = 1. / math.sqrt(self.width)
+        self.cw.data.uniform_(-cstdv, cstdv)
+        self.yw.data.uniform_(-ystdv, ystdv)
+        self.yb.data.uniform_(-xstdv, xstdv)
+        if self.cb is not None:
+            self.cb.data.uniform_(-cstdv, cstdv)
+            self.yb.data.uniform_(-ystdv, ystdv)
+            self.xb.data.uniform_(-xstdv, xstdv)
+
+    def __repr__(self):
+        s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
+             ', stride={stride}')
+        if self.padding != (0,) * len(self.padding):
+            s += ', padding={padding}'
+        if self.bias is None:
+            s += ', bias=False'
+        s += ')'
+        return s.format(name=self.__class__.__name__, **self.__dict__)
+
+    def forward(self, x):
+        x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
+        x = x.permute(0, 2, 3, 1).contiguous() #N H W C
+        x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
+        x = x.permute(0, 2, 3, 1).contiguous() #N W C H
+        x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
+        x = x.permute(0, 2, 3, 1).contiguous() #N C H W
+        return x
+
 
 class ConvCust(nn.Module):
     def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=0, 
@@ -71,7 +131,6 @@ class ConvCust(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
-        x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
         x = x.permute(0, 2, 3, 1).contiguous() #N H W C
         x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
         x = x.permute(0, 2, 3, 1).contiguous() #N W C H
@@ -89,14 +148,14 @@ class wide_basic(nn.Module):
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=True)
         self.custpool = nn.Sequential()
         if stride != 1:
-            self.custpool = nn.Sequential(ConvCust(planes, planes, kernel_size=1, stride=stride, padding=0, 
+            self.custpool = nn.Sequential(ConvCust1(planes, planes, kernel_size=1, stride=stride, padding=0, 
                                 bias=True, width=width, height=height),
             )
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
             self.shortcut = nn.Sequential(
-                ConvCust(in_planes, planes, kernel_size=1, stride=stride, padding=0,
+                ConvCust1(in_planes, planes, kernel_size=1, stride=stride, padding=0,
                             bias=True, width=width, height=height)
             )
 
