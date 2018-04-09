@@ -114,6 +114,10 @@ def getNetwork(args):
         net = Wide_ResNet_RE1D(args.depth, args.widen_factor, args.dropout, num_classes, 32, 32)
         file_name = 'wide-resnet-re1d-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
+    elif (args.net_type == 'wide-resnet-re1d-slow'):
+        net = Wide_ResNet_RE1D_Slow(args.depth, args.widen_factor, args.dropout, num_classes, 32, 32)
+        file_name = 'wide-resnet-re1d-slow-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-1d-resize-avg'):
         net = Wide_ResNet_1D_Resize_Avg(args.depth, args.widen_factor, args.dropout, num_classes, 32, 32)
         file_name = 'wide-resnet-1d-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
