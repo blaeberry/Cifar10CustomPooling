@@ -9,6 +9,7 @@ from .wide_resnet_2d_g import *
 from .wide_resnet_2d_const import *
 from .wide_resnet_2d_resize_norm import *
 from .wide_resnet_re1d import *
+from .wide_resnet_re1d3 import *
 from .wide_resnet_re1d_slow import *
 from .wide_resnet_1d_resize_avg import *
 from .wide_resnet_1d_resize_avg2 import *
