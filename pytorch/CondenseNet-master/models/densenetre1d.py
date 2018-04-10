@@ -18,10 +18,10 @@ __all__ = ['DenseNetRe1d']
 def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
-class _ConvCust(nn.Module):
+class ConvCust(nn.Module):
     def __init__(self, in_planes, out_planes, stride=1, kernel_size=1, padding=0, 
                 bias=True, width=32, height=32):
-        super(_ConvCust, self).__init__()
+        super(ConvCust, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
@@ -99,7 +99,7 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
-        self.pool = _ConvCust(out_channels, out_channels, 
+        self.pool = ConvCust(out_channels, out_channels, 
                              stride=0.5, width=width, height=height)
 
     def forward(self, x):
@@ -148,6 +148,12 @@ class DenseNetRe1d(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
+            if isinstance(m, ConvCust):
+                n = m.kernel_size[0] * m.kernel_size[1]
+                m.yw.data.normal_(0, math.sqrt(2. / (n*int(m.height*m.stride))))
+                m.xw.data.normal_(0, math.sqrt(2. / (n*int(m.width*m.stride))))
+                m.yb.data.zero_()
+                m.yb.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
