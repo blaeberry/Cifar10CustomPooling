@@ -1,6 +1,6 @@
 from .densenet import DenseNet as densenet
 from .densenetre1d import DenseNetRe1d as densenetre1d
-from .densenet-ppb import DenseNetPPB as densenet-ppb
+from .densenet_ppb import DenseNetPPB as densenet_ppb
 from .condensenet import CondenseNet as condensenet
 from .condensenet2d import CondenseNet2d as condensenet2d
 from .condensenetdw import CondenseNetDW as condensenetdw
