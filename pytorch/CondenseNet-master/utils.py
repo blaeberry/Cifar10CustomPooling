@@ -117,7 +117,8 @@ def measure_layer(layer, x):
 
     ### unknown layer type
     else:
-        raise TypeError('unknown layer type: %s' % type_name)
+        return
+        #raise TypeError('unknown layer type: %s' % type_name)
 
     count_ops += delta_ops
     count_params += delta_params
