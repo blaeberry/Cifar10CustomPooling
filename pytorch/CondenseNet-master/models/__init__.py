@@ -5,6 +5,7 @@ from .densenet_mixgateda import DenseNetMixGatedA as densenet_mixgateda
 from .densenet_mixgatedb import DenseNetMixGatedB as densenet_mixgatedb
 from .densenet_cmaxgatedb import DenseNetCmaxGatedB as densenet_cmaxgatedb
 from .densenet_cmaxgatedb2 import DenseNetCmaxGatedB2 as densenet_cmaxgatedb2
+from .densenet_cmaxgateda2 import DenseNetCmaxGatedA2 as densenet_cmaxgateda2
 from .condensenet import CondenseNet as condensenet
 from .condensenet2d import CondenseNet2d as condensenet2d
 from .condensenetdw import CondenseNetDW as condensenetdw
