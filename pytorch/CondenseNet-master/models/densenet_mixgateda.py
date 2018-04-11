@@ -12,16 +12,16 @@ from layers import Conv
 from torch.nn.modules.utils import _pair
 from torch.nn.modules.padding import ConstantPad3d
 
-__all__ = ['DenseNetMixGatedB']
+__all__ = ['DenseNetMixGatedA']
 
 
 def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
-class mixgb(nn.Module):
+class mixga(nn.Module):
     def __init__(self, in_planes, out_planes, stride=2, kernel_size=2, padding=0, 
             bias=True, width=32, height=32, num_convs = 4):
-        super(mixgb, self).__init__()
+        super(mixga, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
@@ -90,7 +90,7 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
-        self.pool = mixgb(out_channels, out_channels, 
+        self.pool = mixga(out_channels, out_channels, 
                              stride=2, width=width, height=height)
 
     def forward(self, x):
@@ -99,10 +99,10 @@ class _Transition(nn.Module):
         return x
 
 
-class DenseNetMixGatedB(nn.Module):
+class DenseNetMixGatedA(nn.Module):
     def __init__(self, args):
 
-        super(DenseNetMixGatedB, self).__init__()
+        super(DenseNetMixGatedA, self).__init__()
 
         self.width = 32
         self.height = 32
@@ -139,11 +139,9 @@ class DenseNetMixGatedB(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            if isinstance(m, mixgb):
+            if isinstance(m, mixga):
                 m.maxgate.data.fill_(1)
-                m.avggate.data.fill_(1)
                 m.mb.data.zero_()
-                m.ab.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
