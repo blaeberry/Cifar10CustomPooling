@@ -56,8 +56,8 @@ class mixgb(nn.Module):
         max_out = self.maxpool(x)
         avg_out = self.avgpool(x)
         # depthwise convolutions
-        max_w = F.conv2d(x, maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
-        avg_w = F.conv2d(x, avggate, self.ab, self.stride, self.padding, groups = self.in_channels)
+        max_w = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
+        avg_w = F.conv2d(x, self.avggate, self.ab, self.stride, self.padding, groups = self.in_channels)
         out = (max_out*max_w)+(avg_out*avg_w)
         return out
 
