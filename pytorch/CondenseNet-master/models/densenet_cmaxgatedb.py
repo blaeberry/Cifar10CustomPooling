@@ -59,11 +59,11 @@ class cmaxgb(nn.Module):
         max_gate = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
         out = max_out*max_gate
         for c in range(self.nc):
-            pconv = self.pconvs.select(4, c)
-            pgate = self.pgates.select(4, c)
+            pconv = self.pconvs.select(4, c).contiguous()
+            pgate = self.pgates.select(4, c).contiguous()
             pconv = pconv.repeat(self.out_channels,1,1,1)
-            gate_out = F.conv2d(x, pgate, self.gbs.select(1, c), self.stride, self.padding, groups = self.in_channels)
-            pool_out =  F.conv2d(x, pconv, self.pbs.select(1, c), self.stride, self.padding, groups = self.in_channels)
+            gate_out = F.conv2d(x, pgate, self.gbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
+            pool_out =  F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
             out += gate_out*pool_out
         return out
 
@@ -150,7 +150,7 @@ class DenseNetCmaxGatedB(nn.Module):
             if isinstance(m, cmaxgb):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.pgates.data.normal_(0, math.sqrt(2. / n))
-                m.maxgates.data.normal_(0, math.sqrt(2. / n))
+                m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
                 m.mb.data.zero_()
                 m.pbs.data.zero_()
