@@ -70,12 +70,12 @@ class cmaxga2(nn.Module):
             gate_out = F.sigmoid(gate_out)
             pool1_out =  F.conv2d(x, pconv1, self.pbs.select(1, c*2).contiguous(), self.stride, self.padding, groups = self.in_channels)
             pool2_out =  F.conv2d(x, pconv2, self.pbs.select(1, (c*2)+1).contiguous(), self.stride, self.padding, groups = self.in_channels)
-           leaves.append(gate_out*pool1_out)
-           leaves.append((1.0 - gate_out)*pool2_out)
+            leaves.append(gate_out*pool1_out)
+            leaves.append((1.0 - gate_out)*pool2_out)
         nodes = []
         for n in range(self.leaves//2):
             nodes.append(leaves[n*2]+leaves[n*2+1])
-        for n in range(len(nodes//2)):
+        for n in range(len(nodes)//2):
             pgate = self.pgates.select(4, (self.leaves//2)+n).contiguous()
             gate_out = F.conv2d(F.pad(nodes[n], (0,1,0,1)), pgate, self.gbs.select(1, (self.leaves//2)+n).contiguous(), 1, self.padding, groups = self.in_channels)
             gate_out = F.sigmoid(gate_out)
