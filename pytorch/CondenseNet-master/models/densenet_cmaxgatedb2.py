@@ -69,10 +69,10 @@ class cmaxgb2(nn.Module):
             leaves.append(gate_out*pool_out)
         nodes = []
         for n in range(self.leaves//2):
-            nodes.append(leaves[l*2]+leaves[l*2+1])
-        for n in len(nodes):
+            nodes.append(leaves[n*2]+leaves[n*2+1])
+        for n in range(len(nodes)):
             pgate = self.pgates.select(4, self.leaves+n).contiguous()
-            gate_out = F.conv2d(nodes[n], pgate, self.gbs.select(1, self.leaves+n).contiguous(), 1, self.padding, groups = self.in_channels)
+            gate_out = F.conv2d(F.pad(nodes[n], (0,1,0,1)), pgate, self.gbs.select(1, self.leaves+n).contiguous(), 1, self.padding, groups = self.in_channels)
             out += nodes[n]*gate_out
         return out
 
@@ -156,7 +156,7 @@ class DenseNetCmaxGatedB2(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            if isinstance(m, cmaxgb):
+            if isinstance(m, cmaxgb2):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.pgates.data.normal_(0, math.sqrt(2. / n))
                 m.maxgate.data.normal_(0, math.sqrt(2. / n))
