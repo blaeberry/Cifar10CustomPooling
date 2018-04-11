@@ -12,16 +12,16 @@ from layers import Conv
 from torch.nn.modules.utils import _pair
 from torch.nn.modules.padding import ConstantPad3d
 
-__all__ = ['DenseNetMixGatedA']
+__all__ = ['DenseNetCmaxGatedB2']
 
 
 def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
-class mixga(nn.Module):
+class cmaxgb2(nn.Module):
     def __init__(self, in_planes, out_planes, stride=2, kernel_size=2, padding=0, 
-            bias=True, width=32, height=32, num_convs = 4):
-        super(mixga, self).__init__()
+            bias=True, width=32, height=32, levels=2):
+        super(cmaxgb2, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
@@ -30,13 +30,17 @@ class mixga(nn.Module):
         self.width = width
         self.height = height
         self.bias = bias
-        self.nc = num_convs
+        self.levels = levels
+        self.leaves = levels**2
 
         self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
-        self.avgpool = nn.AvgPool2d(kernel_size, stride, padding)
         self.maxgate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
+        self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, self.leaves))
+        self.pgates = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, self.leaves+levels))
         if bias:
             self.mb = nn.Parameter(torch.Tensor(out_planes))
+            self.pbs = nn.Parameter(torch.Tensor(out_planes, self.leaves))
+            self.gbs = nn.Parameter(torch.Tensor(out_planes, self.leaves+levels))
         else:
             self.register_parameter('bias', None)
 
@@ -52,11 +56,24 @@ class mixga(nn.Module):
 
     def forward(self, x):
         max_out = self.maxpool(x)
-        avg_out = self.avgpool(x)
         # depthwise convolutions
-        max_w = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
-        max_w = F.sigmoid(max_w)
-        out = (max_out*max_w)+(avg_out*(1.0-max_w))
+        max_gate = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
+        out = max_out*max_gate
+        leaves = []
+        for c in range(self.leaves):
+            pconv = self.pconvs.select(4, c).contiguous()
+            pgate = self.pgates.select(4, c).contiguous()
+            pconv = pconv.repeat(self.out_channels,1,1,1)
+            gate_out = F.conv2d(x, pgate, self.gbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
+            pool_out =  F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
+            leaves.append(gate_out*pool_out)
+        nodes = []
+        for n in range(self.leaves//2):
+            nodes.append(leaves[l*2]+leaves[l*2+1])
+        for n in len(nodes):
+            pgate = self.pgates.select(4, self.leaves+n).contiguous()
+            gate_out = F.conv2d(nodes[n], pgate, self.gbs.select(1, self.leaves+n).contiguous(), 1, self.padding, groups = self.in_channels)
+            out += nodes[n]*gate_out
         return out
 
 class _DenseLayer(nn.Module):
@@ -91,7 +108,7 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
-        self.pool = mixga(out_channels, out_channels, 
+        self.pool = cmaxgb2(out_channels, out_channels, 
                              stride=2, width=width, height=height)
 
     def forward(self, x):
@@ -99,11 +116,10 @@ class _Transition(nn.Module):
         x = self.pool(x)
         return x
 
-
-class DenseNetMixGatedA(nn.Module):
+class DenseNetCmaxGatedB2(nn.Module):
     def __init__(self, args):
 
-        super(DenseNetMixGatedA, self).__init__()
+        super(DenseNetCmaxGatedB2, self).__init__()
 
         self.width = 32
         self.height = 32
@@ -140,9 +156,14 @@ class DenseNetMixGatedA(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            if isinstance(m, mixga):
-                m.maxgate.data.fill_(1)
+            if isinstance(m, cmaxgb):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.pgates.data.normal_(0, math.sqrt(2. / n))
+                m.maxgate.data.normal_(0, math.sqrt(2. / n))
+                m.pconvs.data.fill_(1)
                 m.mb.data.zero_()
+                m.pbs.data.zero_()
+                m.gbs.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
