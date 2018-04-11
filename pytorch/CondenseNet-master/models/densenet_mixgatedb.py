@@ -34,8 +34,8 @@ class mixgb(nn.Module):
 
         self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
         self.avgpool = nn.AvgPool2d(kernel_size, stride, padding)
-        self.maxgate = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size))
-        self.avggate = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size))
+        self.maxgate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
+        self.avggate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
         if bias:
             self.mb = nn.Parameter(torch.Tensor(out_planes))
             self.ab = nn.Parameter(torch.Tensor(out_planes))
@@ -55,8 +55,7 @@ class mixgb(nn.Module):
     def forward(self, x):
         max_out = self.maxpool(x)
         avg_out = self.avgpool(x)
-        maxgate = self.maxgate.repeat(self.out_channels,1,1,1)
-        avggate = self.avggate.repeat(self.out_channels,1,1,1)
+        # depthwise convolutions
         max_w = F.conv2d(x, maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
         avg_w = F.conv2d(x, avggate, self.ab, self.stride, self.padding, groups = self.in_channels)
         out = (max_out*max_w)+(avg_out*avg_w)
