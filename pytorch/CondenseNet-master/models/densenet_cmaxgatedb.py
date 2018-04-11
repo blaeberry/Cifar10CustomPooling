@@ -12,16 +12,16 @@ from layers import Conv
 from torch.nn.modules.utils import _pair
 from torch.nn.modules.padding import ConstantPad3d
 
-__all__ = ['DenseNetMixGatedB']
+__all__ = ['DenseNetCmaxGatedB']
 
 
 def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
-class mixgb(nn.Module):
+class cmaxgb(nn.Module):
     def __init__(self, in_planes, out_planes, stride=2, kernel_size=2, padding=0, 
             bias=True, width=32, height=32, num_convs = 4):
-        super(mixgb, self).__init__()
+        super(cmaxgb, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
@@ -33,12 +33,13 @@ class mixgb(nn.Module):
         self.nc = num_convs
 
         self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
-        self.avgpool = nn.AvgPool2d(kernel_size, stride, padding)
         self.maxgate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
-        self.avggate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
+        self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
+        self.pgates = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
         if bias:
             self.mb = nn.Parameter(torch.Tensor(out_planes))
-            self.ab = nn.Parameter(torch.Tensor(out_planes))
+            self.pbs = nn.Parameter(torch.Tensor(out_planes, num_convs))
+            self.gbs = nn.Parameter(torch.Tensor(out_planes, num_convs))
         else:
             self.register_parameter('bias', None)
 
@@ -54,11 +55,16 @@ class mixgb(nn.Module):
 
     def forward(self, x):
         max_out = self.maxpool(x)
-        avg_out = self.avgpool(x)
         # depthwise convolutions
-        max_w = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
-        avg_w = F.conv2d(x, self.avggate, self.ab, self.stride, self.padding, groups = self.in_channels)
-        out = (max_out*max_w)+(avg_out*avg_w)
+        max_gate = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
+        out = max_out*max_gate
+        for c in range(self.nc):
+            pconv = self.pconvs.select(4, c)
+            pgate = self.pgates.select(4, c)
+            pconv = pconv.repeat(self.out_channels,1,1,1)
+            gate_out = F.conv2d(x, pgate, self.gbs.select(1, c), self.stride, self.padding, groups = self.in_channels)
+            pool_out =  F.conv2d(x, pconv, self.pbs.select(1, c), self.stride, self.padding, groups = self.in_channels)
+            out += gate_out*pool_out
         return out
 
 class _DenseLayer(nn.Module):
@@ -93,7 +99,7 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
-        self.pool = mixgb(out_channels, out_channels, 
+        self.pool = cmaxgb(out_channels, out_channels, 
                              stride=2, width=width, height=height)
 
     def forward(self, x):
@@ -101,11 +107,10 @@ class _Transition(nn.Module):
         x = self.pool(x)
         return x
 
-
-class DenseNetMixGatedB(nn.Module):
+class DenseNetCmaxGatedB(nn.Module):
     def __init__(self, args):
 
-        super(DenseNetMixGatedB, self).__init__()
+        super(DenseNetCmaxGatedB, self).__init__()
 
         self.width = 32
         self.height = 32
@@ -142,11 +147,14 @@ class DenseNetMixGatedB(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
-            if isinstance(m, mixgb):
-                m.maxgate.data.fill_(1)
-                m.avggate.data.fill_(1)
+            if isinstance(m, cmaxgb):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.pgates.data.normal_(0, math.sqrt(2. / n))
+                m.maxgates.data.normal_(0, math.sqrt(2. / n))
+                m.pconvs.data.fill_(1)
                 m.mb.data.zero_()
-                m.ab.data.zero_()
+                m.pbs.data.zero_()
+                m.gbs.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()

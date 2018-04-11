@@ -3,6 +3,7 @@ from .densenetre1d import DenseNetRe1d as densenetre1d
 from .densenet_ppb import DenseNetPPB as densenet_ppb
 from .densenet_mixgateda import DenseNetMixGatedA as densenet_mixgateda
 from .densenet_mixgatedb import DenseNetMixGatedB as densenet_mixgatedb
+from .densenet_cmaxgatedb import DenseNetCmaxGatedB as densenet_cmaxgatedb
 from .condensenet import CondenseNet as condensenet
 from .condensenet2d import CondenseNet2d as condensenet2d
 from .condensenetdw import CondenseNetDW as condensenetdw
