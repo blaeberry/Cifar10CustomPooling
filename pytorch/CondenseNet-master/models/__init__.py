@@ -1,5 +1,7 @@
 from .densenet import DenseNet as densenet
 from .densenetre1d import DenseNetRe1d as densenetre1d
+from .densenetre1d_slow import DenseNetRe1dSlow as densenetre1d_slow
+from .densenetre1d_slow_bnr import DenseNetRe1dSlowBNR as densenetre1d_slow_bnr
 from .densenet_ppb import DenseNetPPB as densenet_ppb
 from .densenet_mixgateda import DenseNetMixGatedA as densenet_mixgateda
 from .densenet_mixgatedb import DenseNetMixGatedB as densenet_mixgatedb

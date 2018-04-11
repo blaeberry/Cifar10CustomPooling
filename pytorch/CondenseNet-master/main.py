@@ -69,6 +69,8 @@ parser.add_argument('--dropout-rate', default=0, type=float,
                     help='drop out (default: 0)')
 parser.add_argument('--group-lasso-lambda', default=0., type=float, metavar='LASSO',
                     help='group lasso loss weight (default: 0)')
+parser.add_argument('--kernel-size', default=1, type=int, metavar='K',
+                    help='Kernel size for re1d (default: 1)')
 
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set (default: false)')

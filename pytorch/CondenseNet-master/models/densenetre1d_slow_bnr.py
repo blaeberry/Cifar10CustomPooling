@@ -12,7 +12,7 @@ from layers import Conv
 from torch.nn.modules.utils import _pair
 from torch.nn.modules.padding import ConstantPad3d
 
-__all__ = ['DenseNetRe1d']
+__all__ = ['DenseNetRe1dSlowBNR']
 
 
 def make_divisible(x, y):
@@ -100,21 +100,33 @@ class _Transition(nn.Module):
         padding = 0
         if args.kernel_size == 3:
             padding = 1
-        self.conv = Conv(in_channels, out_channels,
+        self.conv1 = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1, padding=padding)
-        self.pool = ConvCust(out_channels, out_channels, 
-                             stride=0.5, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
+        self.bnr1 = nn.Sequential(nn.BatchNorm2d(out_channels),
+                                  nn.ReLU(inplace=True))
+        self.pool1 = ConvCust(out_channels, out_channels, 
+                             stride=0.75, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
+        self.conv2 = Conv(out_channels, out_channels,
+                         kernel_size=1, groups=args.group_1x1)
+        self.bnr2 = nn.Sequential(nn.BatchNorm2d(out_channels),
+                                  nn.ReLU(inplace=True))
+        self.pool2 = ConvCust(out_channels, out_channels, 
+                     stride=2.0/3.0, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
 
     def forward(self, x):
-        x = self.conv(x)
-        x = self.pool(x)
+        x = self.conv1(x)
+        x = self.bnr1(x)
+        x = self.pool1(x)
+        x = self.conv2(x)
+        x = self.bnr2(x)
+        x = self.pool2(x)
         return x
 
 
-class DenseNetRe1d(nn.Module):
+class DenseNetRe1dSlowBNR(nn.Module):
     def __init__(self, args):
 
-        super(DenseNetRe1d, self).__init__()
+        super(DenseNetRe1dSlowBNR, self).__init__()
 
         self.width = 32
         self.height = 32
