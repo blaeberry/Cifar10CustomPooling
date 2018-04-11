@@ -30,7 +30,11 @@ class ConvCust(nn.Module):
         self.width = width
         self.height = height
         self.bias = bias
+        self.bnr1 = nn.Sequential(nn.BatchNorm2d(out_channels),
+                                  nn.ReLU(inplace=True))
         self.yw = nn.Parameter(torch.Tensor(int(height*stride), height, *self.kernel_size))
+        self.bnr2 = nn.Sequential(nn.BatchNorm2d(out_planes),
+                                 nn.ReLU(inplace=True))
         self.xw = nn.Parameter(torch.Tensor(int(width*stride), width, *self.kernel_size))
         if bias:
             self.yb = nn.Parameter(torch.Tensor(int(height*stride)))
@@ -61,8 +65,10 @@ class ConvCust(nn.Module):
 
     def forward(self, x):
         x = x.permute(0, 2, 3, 1).contiguous() #N H W C
+        x = self.bnr1(x)
         x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
         x = x.permute(0, 2, 3, 1).contiguous() #N W C H
+        x = self.bnr2(x)
         x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
         x = x.permute(0, 2, 3, 1).contiguous() #N C H W
         return x
@@ -102,23 +108,17 @@ class _Transition(nn.Module):
             padding = 1
         self.conv1 = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1, padding=padding)
-        self.bnr1 = nn.Sequential(nn.BatchNorm2d(out_channels),
-                                  nn.ReLU(inplace=True))
         self.pool1 = ConvCust(out_channels, out_channels, 
                              stride=0.75, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
         self.conv2 = Conv(out_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
-        self.bnr2 = nn.Sequential(nn.BatchNorm2d(out_channels),
-                                  nn.ReLU(inplace=True))
         self.pool2 = ConvCust(out_channels, out_channels, 
                      stride=2.0/3.0, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
 
     def forward(self, x):
         x = self.conv1(x)
-        x = self.bnr1(x)
         x = self.pool1(x)
         x = self.conv2(x)
-        x = self.bnr2(x)
         x = self.pool2(x)
         return x
 
