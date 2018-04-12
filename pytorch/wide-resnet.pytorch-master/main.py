@@ -90,6 +90,10 @@ def getNetwork(args):
         net = Wide_ResNet(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
+    elif (args.net_type == 'wide-resnet-order'):
+        net = Wide_ResNet_Order(args.depth, args.widen_factor, args.dropout, num_classes)
+        file_name = 'wide-resnet-order-'+str(args.depth)+'x'+str(args.widen_factor) + \
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-2d'):
         net = Wide_ResNet_2D(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-'+str(args.depth)+'x'+str(args.widen_factor) + \
