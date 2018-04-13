@@ -75,7 +75,7 @@ parser.add_argument('-bnr', action='store_true',
                     help='more batch norm relu for ops')
 parser.add_argument('-dw', action='store_true',
                     help='do depthwise instead of pooling for some custom ops')
-parser.add_argument('-b', action='store_true',
+parser.add_argument('-bgates', action='store_true',
                     help='have gates for all pools')
 
 parser.add_argument('--evaluate', action='store_true',

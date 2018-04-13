@@ -31,7 +31,7 @@ class mixgb(nn.Module):
         self.height = height
         self.bias = bias
         self.nc = num_convs
-        self.b = args.b
+        self.b = args.bgates
         self.bnr = args.bnr
 
         if self.bnr:
@@ -62,8 +62,8 @@ class mixgb(nn.Module):
 
     def forward(self, x):
         if self.bnr:
-            x = nn.BatchNorm2d(x)
-            x = nn.ReLU(x)
+            x = self.norm(x)
+            x = self.relu(x)
         max_out = self.maxpool(x)
         avg_out = self.avgpool(x)
         # depthwise convolutions
@@ -127,7 +127,7 @@ class DenseNetMixGatedB(nn.Module):
         self.stages = args.stages
         self.growth = args.growth
         self.reduction = args.reduction
-        self.b = args.b
+        self.b = args.bgates
         assert len(self.stages) == len(self.growth)
         self.args = args
         self.progress = 0.0
@@ -160,9 +160,10 @@ class DenseNetMixGatedB(nn.Module):
                 m.weight.data.normal_(0, math.sqrt(2. / n))
             if isinstance(m, mixgb):
                 m.maxgate.data.fill_(1)
-                m.avggate.data.fill_(1)
+                if self.b:
+                    m.avggate.data.fill_(1)
+                    m.ab.data.zero_()
                 m.mb.data.zero_()
-                m.ab.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()

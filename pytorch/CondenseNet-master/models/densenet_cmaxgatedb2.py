@@ -34,7 +34,7 @@ class cmaxgb2(nn.Module):
         self.leaves = levels**2
         self.dw = args.dw
         self.bnr = args.bnr
-        self.b = args.b
+        self.b = args.bgates
 
         if self.bnr:
             self.norm = nn.BatchNorm2d(in_planes)
@@ -75,8 +75,8 @@ class cmaxgb2(nn.Module):
 
     def forward(self, x):
         if self.bnr:
-            x = nn.BatchNorm2d(x)
-            x = nn.ReLU(x)
+            x = self.norm(x)
+            x = self.relu(x)
         max_out = self.maxpool(x)
         # depthwise convolutions
         max_gate = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
@@ -219,6 +219,8 @@ class DenseNetCmaxGatedB2(nn.Module):
                 m.pgates.data.normal_(0, math.sqrt(2. / n))
                 m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
+                if self.args.dw:
+                    m.pconvs.data.normal_(0, math.sqrt(2. / n))
                 m.mb.data.zero_()
                 m.pbs.data.zero_()
                 m.gbs.data.zero_()

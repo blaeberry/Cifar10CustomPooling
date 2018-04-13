@@ -101,13 +101,13 @@ class _Transition(nn.Module):
         if args.kernel_size == 3:
             padding = 1
         self.conv1 = Conv(in_channels, out_channels,
-                         kernel_size=1, groups=args.group_1x1, padding=padding)
+                         kernel_size=args.kernel_size, groups=args.group_1x1, padding=padding)
         self.pool1 = ConvCust(out_channels, out_channels, 
                              stride=0.75, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
         self.conv2 = Conv(out_channels, out_channels,
-                         kernel_size=1, groups=args.group_1x1)
+                         kernel_size=args.kernel_size, groups=args.group_1x1, padding=padding)
         self.pool2 = ConvCust(out_channels, out_channels, 
-                     stride=2.0/3.0, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
+                     stride=2.0/3.0, kernel_size=args.kernel_size, padding=padding, width=int(0.75*width), height=int(0.75*height))
 
     def forward(self, x):
         x = self.conv1(x)

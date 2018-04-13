@@ -101,7 +101,7 @@ class _Transition(nn.Module):
         if args.kernel_size == 3:
             padding = 1
         self.conv = Conv(in_channels, out_channels,
-                         kernel_size=1, groups=args.group_1x1, padding=padding)
+                         kernel_size=args.kernel_size, groups=args.group_1x1, padding=padding)
         self.pool = ConvCust(out_channels, out_channels, 
                              stride=0.5, kernel_size=args.kernel_size, padding=padding, width=width, height=height)
 
