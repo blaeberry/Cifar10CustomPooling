@@ -68,7 +68,7 @@ class prefpoolb(nn.Module):
             pconv = self.pconvs.select(4, c)
             pconv = pconv.repeat(self.out_channels,1,1,1)
             ppref = self.pb.select(0, c) + self.pprefs.select(4, c)
-            pconv = (ppref)*pconv
+            pconv = (ppref)+pconv
             out += F.conv2d(x, pconv, None, self.stride, self.padding, groups = self.in_channels)
         return out
 

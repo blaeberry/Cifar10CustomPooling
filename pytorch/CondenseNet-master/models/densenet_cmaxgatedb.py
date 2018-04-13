@@ -19,7 +19,7 @@ def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
 class cmaxgb(nn.Module):
-    def __init__(self, in_planes, out_planes, stride=2, kernel_size=2, padding=0, 
+    def __init__(self, in_planes, out_planes, args, stride=2, kernel_size=2, padding=0, 
             bias=True, width=32, height=32, num_convs = 4):
         super(cmaxgb, self).__init__()
         self.in_channels = in_planes
@@ -31,10 +31,19 @@ class cmaxgb(nn.Module):
         self.height = height
         self.bias = bias
         self.nc = num_convs
+        self.dw = args.dw
+        self.bnr = args.bnr
+
+        if self.bnr:
+            self.norm = nn.BatchNorm2d(in_planes)
+            self.relu = nn.ReLU(inplace=True)
 
         self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
         self.maxgate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
-        self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
+        if self.dw:
+            self.pconvs = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
+        else:
+            self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
         self.pgates = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
         if bias:
             self.mb = nn.Parameter(torch.Tensor(out_planes))
@@ -54,6 +63,9 @@ class cmaxgb(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
+        if self.bnr:
+            x = nn.BatchNorm2d(x)
+            x = nn.ReLU(x)
         max_out = self.maxpool(x)
         # depthwise convolutions
         max_gate = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
@@ -61,7 +73,8 @@ class cmaxgb(nn.Module):
         for c in range(self.nc):
             pconv = self.pconvs.select(4, c).contiguous()
             pgate = self.pgates.select(4, c).contiguous()
-            pconv = pconv.repeat(self.out_channels,1,1,1)
+            if not self.dw:
+                pconv = pconv.repeat(self.out_channels,1,1,1)
             gate_out = F.conv2d(x, pgate, self.gbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
             pool_out =  F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
             out += gate_out*pool_out
@@ -99,7 +112,7 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
-        self.pool = cmaxgb(out_channels, out_channels, 
+        self.pool = cmaxgb(out_channels, out_channels, args=args,
                              stride=2, width=width, height=height)
 
     def forward(self, x):
@@ -117,6 +130,8 @@ class DenseNetCmaxGatedB(nn.Module):
         self.stages = args.stages
         self.growth = args.growth
         self.reduction = args.reduction
+        self.bnr = args.bnr
+        self.dw = args.dw
         assert len(self.stages) == len(self.growth)
         self.args = args
         self.progress = 0.0
@@ -152,6 +167,10 @@ class DenseNetCmaxGatedB(nn.Module):
                 m.pgates.data.normal_(0, math.sqrt(2. / n))
                 m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
+                if self.bnr:
+                    m.norm.data.fill_(1)
+                if self.dw:
+                    m.pconvs.data.normal_(0, math.sqrt(2. / n))
                 m.mb.data.zero_()
                 m.pbs.data.zero_()
                 m.gbs.data.zero_()

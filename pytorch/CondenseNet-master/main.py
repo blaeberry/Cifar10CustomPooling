@@ -71,6 +71,12 @@ parser.add_argument('--group-lasso-lambda', default=0., type=float, metavar='LAS
                     help='group lasso loss weight (default: 0)')
 parser.add_argument('--kernel-size', default=1, type=int, metavar='K',
                     help='Kernel size for re1d (default: 1)')
+parser.add_argument('-bnr', action='store_true',
+                    help='more batch norm relu for ops')
+parser.add_argument('-dw', action='store_true',
+                    help='do depthwise instead of pooling for some custom ops')
+parser.add_argument('-b', action='store_true',
+                    help='have gates for all pools')
 
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set (default: false)')

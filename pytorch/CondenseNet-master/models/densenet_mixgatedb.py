@@ -19,7 +19,7 @@ def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
 class mixgb(nn.Module):
-    def __init__(self, in_planes, out_planes, stride=2, kernel_size=2, padding=0, 
+    def __init__(self, in_planes, out_planes, args, stride=2, kernel_size=2, padding=0, 
             bias=True, width=32, height=32, num_convs = 4):
         super(mixgb, self).__init__()
         self.in_channels = in_planes
@@ -31,14 +31,22 @@ class mixgb(nn.Module):
         self.height = height
         self.bias = bias
         self.nc = num_convs
+        self.b = args.b
+        self.bnr = args.bnr
+
+        if self.bnr:
+            self.norm = nn.BatchNorm2d(in_planes)
+            self.relu = nn.ReLU(inplace=True)
 
         self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
         self.avgpool = nn.AvgPool2d(kernel_size, stride, padding)
         self.maxgate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
-        self.avggate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
+        if self.b:
+            self.avggate = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size))
         if bias:
             self.mb = nn.Parameter(torch.Tensor(out_planes))
-            self.ab = nn.Parameter(torch.Tensor(out_planes))
+            if self.b:
+                self.ab = nn.Parameter(torch.Tensor(out_planes))
         else:
             self.register_parameter('bias', None)
 
@@ -53,11 +61,18 @@ class mixgb(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
+        if self.bnr:
+            x = nn.BatchNorm2d(x)
+            x = nn.ReLU(x)
         max_out = self.maxpool(x)
         avg_out = self.avgpool(x)
         # depthwise convolutions
         max_w = F.conv2d(x, self.maxgate, self.mb, self.stride, self.padding, groups = self.in_channels)
-        avg_w = F.conv2d(x, self.avggate, self.ab, self.stride, self.padding, groups = self.in_channels)
+        if self.b:
+            avg_w = F.conv2d(x, self.avggate, self.ab, self.stride, self.padding, groups = self.in_channels)
+        else:
+            max_w = F.sigmoid(max_w)
+            avg_w = 1.0 - max_w
         out = (max_out*max_w)+(avg_out*avg_w)
         return out
 
@@ -94,7 +109,7 @@ class _Transition(nn.Module):
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
         self.pool = mixgb(out_channels, out_channels, 
-                             stride=2, width=width, height=height)
+                             stride=2, args=args, width=width, height=height)
 
     def forward(self, x):
         x = self.conv(x)
@@ -112,6 +127,7 @@ class DenseNetMixGatedB(nn.Module):
         self.stages = args.stages
         self.growth = args.growth
         self.reduction = args.reduction
+        self.b = args.b
         assert len(self.stages) == len(self.growth)
         self.args = args
         self.progress = 0.0
