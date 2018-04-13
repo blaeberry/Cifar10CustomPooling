@@ -111,7 +111,7 @@ class wide_basic(nn.Module):
                 self.conv1 = ConvCust(in_planes, planes, kernel_size=kernel, stride=stride, padding=padding, 
                                       bnr=bnr, bias=True, width=width, height=height)
             else:
-                self.conv1 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
+                self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
         else:
             self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, bias=True)
 
