@@ -26,12 +26,17 @@ parser.add_argument('--net_type', default='wide-resnet', type=str, help='model')
 parser.add_argument('--depth', default=28, type=int, help='depth of model')
 parser.add_argument('--widen_factor', default=10, type=int, help='width of model')
 parser.add_argument('--dropout', default=0.3, type=float, help='dropout_rate')
+
 parser.add_argument('--wd', default=5e-4, type=float, help='weight_decay')
 parser.add_argument('--g', default=1, type=int, help='groups in group conv')
 parser.add_argument('--k', default=1, type=int, help='kernel size for re1d')
 parser.add_argument('--bnr', '-bnr', action='store_true', help='fine-grain batch norm relu')
 parser.add_argument('--order', '-o', action='store_true', help='order striding like original')
 parser.add_argument('--all', '-a', action='store_true', help='apply re1d to all')
+parser.add_argument('--resbnr', action='store_true', help='apply bnr to residual')
+parser.add_argument('--res1s', action='store_true', help='apply k=1 re1d to residuals')
+parser.add_argument('--resm', action='store_true', help='apply matching k re1d to residuals')
+
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--dataset', default='cifar10', type=str, help='dataset = [cifar10/cifar100]')
 parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
@@ -119,8 +124,7 @@ def getNetwork(args):
         file_name = 'wide-resnet-2d-resize-avg-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-re1d'):
-        net = Wide_ResNet_RE1D(args.depth, args.widen_factor, args.dropout, num_classes, args.k, args.bnr,
-            args.order, args.all, 32, 32)
+        net = Wide_ResNet_RE1D(args.depth, args.widen_factor, args.dropout, num_classes, args, 32, 32)
         file_name = 'wide-resnet-re1d-'+str(args.depth)+'x'+str(args.widen_factor)+\
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)+\
                     '-kernel-'+str(args.k)+'-bnr-'+str(args.bnr)+'-order-'+str(args.order)+'-all-'+str(args.all)

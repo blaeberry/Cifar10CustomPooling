@@ -44,13 +44,17 @@ class ConvCust(nn.Module):
         self.bnr = bnr
         self.width = width
         self.height = height
-        self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, *self.kernel_size))
+        if kernel_size == 311:
+            self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, 3,3))
+            self.yw = nn.Parameter(torch.Tensor(height//stride, height, 1,1))
+            self.xw = nn.Parameter(torch.Tensor(width//stride, width, 1,1))
+        else:
+            self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, *self.kernel_size))
+            self.yw = nn.Parameter(torch.Tensor(height//stride, height, *self.kernel_size))
+            self.xw = nn.Parameter(torch.Tensor(width//stride, width, *self.kernel_size))
         if bnr:
             self.bn1 = nn.BatchNorm2d(height)
-        self.yw = nn.Parameter(torch.Tensor(height//stride, height, *self.kernel_size))
-        if bnr:
             self.bn2 = nn.BatchNorm2d(width)
-        self.xw = nn.Parameter(torch.Tensor(width//stride, width, *self.kernel_size))
         if bias:
             self.cb = nn.Parameter(torch.Tensor(out_planes))
             self.yb = nn.Parameter(torch.Tensor(height//stride))
@@ -98,11 +102,12 @@ class ConvCust(nn.Module):
         return x
 
 class wide_basic(nn.Module):
-    def __init__(self, in_planes, planes, dropout_rate, kernel=1, bnr=False, 
-                 order=False, all1=False, stride=1, width=32, height=32):
+    def __init__(self, in_planes, planes, dropout_rate, kernel, bnr, 
+                 order, all1, resbnr, res1s, resm, stride=1, width=32, height=32):
         super(wide_basic, self).__init__()
         self.order = order
         self.bn1 = nn.BatchNorm2d(in_planes)
+        self.resbnr = resbnr
         padding = 0
         if kernel > 1:
             padding = 1
@@ -117,6 +122,8 @@ class wide_basic(nn.Module):
 
         self.dropout = nn.Dropout(p=dropout_rate)
         self.bn2 = nn.BatchNorm2d(planes)
+        if self.resbnr:
+            self.bn3 = nn.BatchNorm2d(in_planes)
 
         if order:
             self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, padding=1, bias=True)
@@ -129,25 +136,43 @@ class wide_basic(nn.Module):
 
         self.shortcut = nn.Sequential()
         if stride != 1 or in_planes != planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=True),
-            )
+            if stride != 1 and (res1s or resm):
+                if res1s:
+                    self.shortcut = nn.Sequential(
+                        ConvCust(in_planes, planes, kernel_size=1, stride=stride, padding=padding, 
+                                 bnr=bnr, bias=True, width=width, height=height),
+                    )
+                else:
+                    self.shortcut = nn.Sequential(
+                        ConvCust(in_planes, planes, kernel_size=kernel, stride=stride, padding=padding, 
+                                 bnr=bnr, bias=True, width=width, height=height),
+                    )
+            else:
+                self.shortcut = nn.Sequential(
+                    nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=True),
+                )
 
     def forward(self, x):
         out = self.dropout(self.conv1(F.relu(self.bn1(x))))
         out = self.conv2(F.relu(self.bn2(out)))
-        out += self.shortcut(x)
+        if self.resbnr:
+            out += self.shortcut(F.relu(self.bn3(x)))
+        else:
+            out += self.shortcut(x)
 
         return out
 
 class Wide_ResNet_RE1D(nn.Module):
-    def __init__(self, depth, widen_factor, dropout_rate, num_classes, kernel, bnr, order, all1, width, height):
+    def __init__(self, depth, widen_factor, dropout_rate, num_classes, args, width, height):
         super(Wide_ResNet_RE1D, self).__init__()
         self.in_planes = 16
-        self.kernel_size = kernel
-        self.bnr = bnr
-        self.order = order
-        self.all = all1
+        self.kernel_size = args.k
+        self.bnr = args.bnr
+        self.order = args.order
+        self.all = args.all
+        self.resbnr = args.resbnr
+        self.res1s = args.res1s
+        self.resm = args.resm
         self.width = width
         self.height = height
 
@@ -171,7 +196,7 @@ class Wide_ResNet_RE1D(nn.Module):
 
         for stride in strides:
             layers.append(block(self.in_planes, planes, dropout_rate, self.kernel_size, self.bnr, self.order,
-                                self.all, stride, width, height))
+                                self.all, self.resbnr, self.res1s, self.resm, stride, width, height))
             if stride == 2:
                 width = width // 2
                 height = height // 2
