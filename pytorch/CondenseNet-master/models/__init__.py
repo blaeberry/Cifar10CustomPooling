@@ -1,5 +1,6 @@
 from .densenet import DenseNet as densenet
 from .densenetre1d import DenseNetRe1d as densenetre1d
+from .densenetre1d_311 import DenseNetRe1d311 as densenetre1d_311
 from .densenetre1d_slow import DenseNetRe1dSlow as densenetre1d_slow
 from .densenetre1d_slow_bnr import DenseNetRe1dSlowBNR as densenetre1d_slow_bnr
 from .densenet_ppb import DenseNetPPB as densenet_ppb
