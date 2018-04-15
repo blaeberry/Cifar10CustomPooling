@@ -40,7 +40,8 @@ class ConvCust(nn.Module):
         self.out_channels = out_planes
         self.kernel_size = _pair(kernel_size)
         self.stride = stride #replacing stride with reduction operation
-        self.padding = _pair(padding)
+        self.padding1 = _pair(padding)
+        self.padding2 = self.padding1
         self.bnr = bnr
         self.width = width
         self.height = height
@@ -48,6 +49,7 @@ class ConvCust(nn.Module):
             self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, 3,3))
             self.yw = nn.Parameter(torch.Tensor(int(height*stride), height, 1,1))
             self.xw = nn.Parameter(torch.Tensor(int(width*stride), width, 1,1))
+            self.padding2 = 0
         else:
             self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, *self.kernel_size))
             self.yw = nn.Parameter(torch.Tensor(int(height*stride), height, *self.kernel_size))
@@ -81,7 +83,7 @@ class ConvCust(nn.Module):
     def __repr__(self):
         s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
              ', stride={stride}')
-        if self.padding != (0,) * len(self.padding):
+        if self.padding1 != (0,) * len(self.padding1):
             s += ', padding={padding}'
         if self.bias is None:
             s += ', bias=False'
@@ -89,15 +91,15 @@ class ConvCust(nn.Module):
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
-        x = F.conv2d(x, self.cw, self.cb, 1, self.padding)
+        x = F.conv2d(x, self.cw, self.cb, 1, self.padding1)
         x = x.permute(0, 2, 3, 1).contiguous() #N H W C
         if self.bnr:
             x = F.relu(self.bn1(x))
-        x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
+        x = F.conv2d(x, self.yw, self.yb, 1, self.padding2)
         x = x.permute(0, 2, 3, 1).contiguous() #N W C H
         if self.bnr:
             x = F.relu(self.bn2(x))
-        x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
+        x = F.conv2d(x, self.xw, self.xb, 1, self.padding2)
         x = x.permute(0, 2, 3, 1).contiguous() #N C H W
         return x
 
@@ -120,7 +122,7 @@ class wide_basic(nn.Module):
                     nn.BatchNorm2d(planes),
                     nn.ReLU(),
                     ConvCust(planes, planes, kernel_size=kernel, stride=2.0/3.0, padding=padding, 
-                      bnr=bnr, bias=True, width=width, height=height),
+                      bnr=bnr, bias=True, width=int(width*0.75), height=int(height*0.75)),
                 )
             else:
                 self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
@@ -142,7 +144,7 @@ class wide_basic(nn.Module):
                     nn.BatchNorm2d(planes),
                     nn.ReLU(),
                     ConvCust(planes, planes, kernel_size=kernel, stride=2.0/3.0, padding=padding, 
-                      bnr=bnr, bias=True, width=width, height=height),
+                      bnr=bnr, bias=True, width=int(width*0.75), height=int(height*0.75)),
                 )
             else:
                 self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
@@ -152,17 +154,17 @@ class wide_basic(nn.Module):
             if stride != 1 and (res1s or resm):
                 if res1s:
                     self.shortcut = nn.Sequential(
-                        ConvCust(in_planes, planes, kernel_size=1, stride=0.75, padding=padding, 
+                        ConvCust(in_planes, planes, kernel_size=1, stride=0.75, padding=0, 
                                  bnr=bnr, bias=True, width=width, height=height),
-                        ConvCust(planes, planes, kernel_size=1, stride=2.0/3.0, padding=padding, 
-                                 bnr=bnr, bias=True, width=width, height=height),
+                        ConvCust(planes, planes, kernel_size=1, stride=2.0/3.0, padding=0, 
+                                 bnr=bnr, bias=True, width=int(width*0.75), height=int(height*0.75)),
                     )
                 else:
                     self.shortcut = nn.Sequential(
                         ConvCust(in_planes, planes, kernel_size=kernel, stride=0.75, padding=padding, 
                                  bnr=bnr, bias=True, width=width, height=height),
                         ConvCust(planes, planes, kernel_size=kernel, stride=2.0/3.0, padding=padding, 
-                                 bnr=bnr, bias=True, width=width, height=height),
+                                 bnr=bnr, bias=True, width=int(width*0.75), height=int(height*0.75)),
                     )
             else:
                 self.shortcut = nn.Sequential(

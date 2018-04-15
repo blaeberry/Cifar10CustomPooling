@@ -112,8 +112,11 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
+        padding = 0
+        if args.kernel_size == 3:
+            padding = 1
         self.pool = cmaxgb(out_channels, out_channels, args=args, kernel_size=args.kernel_size,
-                             stride=2, width=width, height=height)
+                             stride=2, padding=padding, width=width, height=height)
 
     def forward(self, x):
         x = self.conv(x)

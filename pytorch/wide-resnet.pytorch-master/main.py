@@ -137,7 +137,7 @@ def getNetwork(args):
         file_name = 'wide-resnet-re1d3-slow-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-re1d-slow'):
-        net = Wide_ResNet_RE1D_Slow(args.depth, args.widen_factor, args.dropout, num_classes, args.k, 32, 32)
+        net = Wide_ResNet_RE1D_Slow(args.depth, args.widen_factor, args.dropout, num_classes, args, 32, 32)
         file_name = 'wide-resnet-re1d-slow-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)+\
                     '-kernel-'+str(args.k)

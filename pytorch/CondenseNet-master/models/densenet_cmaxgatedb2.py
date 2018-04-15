@@ -122,20 +122,20 @@ class cmaxgb2(nn.Module):
                 pgate2 = self.pgates.select(4, self.leaves+(n*2)+1).contiguous()
                 gb1 = self.gbs.select(1, self.leaves+(n*2)).contiguous()
                 gb2 = self.gbs.select(1, self.leaves+(n*2)+1).contiguous()
-                gate_out1 = F.conv2d(F.pad(nodes[n*2], (0,1,0,1)), pgate1, gb1, 
+                gate_out1 = F.conv2d(nodes[n*2], pgate1, gb1, 
                                      1, self.padding, groups = self.in_channels)
-                gate_out2 = F.conv2d(F.pad(nodes[(n*2)+1], (0,1,0,1)), pgate2, gb2, 
+                gate_out2 = F.conv2d(nodes[(n*2)+1], pgate2, gb2, 
                      1, self.padding, groups = self.in_channels)
             else:
                 pgate1 = self.pgates.select(4, (self.leaves//2)+n).contiguous()
                 gb1 = self.gbs.select(1, (self.leaves//2)+n).contiguous()
-                gate_out1 = F.conv2d(F.pad(nodes[n*2], (0,1,0,1)), pgate1, gb1, 
+                gate_out1 = F.conv2d(nodes[n*2], pgate1, gb1, 
                                      1, self.padding, groups = self.in_channels)
                 gate_out1 = F.sigmoid(gate_out1)
                 gate_out2 = 1.0 - gate_out1
             if self.nomax and n == 0:
                 out = (nodes[n*2]*gate_out1) + (nodes[(n*2)+1]*gate_out2)
-            else
+            else:
                 out += (nodes[n*2]*gate_out1) + (nodes[(n*2)+1]*gate_out2)
 
         return out
@@ -172,8 +172,11 @@ class _Transition(nn.Module):
         super(_Transition, self).__init__()
         self.conv = Conv(in_channels, out_channels,
                          kernel_size=1, groups=args.group_1x1)
+        padding = 0
+        if args.kernel_size == 3:
+            padding = 1
         self.pool = cmaxgb2(out_channels, out_channels, args=args, kernel_size=args.kernel_size,
-                             stride=2, width=width, height=height)
+                             stride=2, padding=padding, width=width, height=height)
 
     def forward(self, x):
         x = self.conv(x)
@@ -223,7 +226,8 @@ class DenseNetCmaxGatedB2(nn.Module):
             if isinstance(m, cmaxgb2):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.pgates.data.normal_(0, math.sqrt(2. / n))
-                m.maxgate.data.normal_(0, math.sqrt(2. / n))
+                if not args.nomax:
+                    m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
                 if self.args.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
