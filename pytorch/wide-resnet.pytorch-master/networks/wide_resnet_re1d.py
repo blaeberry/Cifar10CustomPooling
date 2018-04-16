@@ -48,10 +48,12 @@ class ConvCust(nn.Module):
             self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, 3,3))
             self.yw = nn.Parameter(torch.Tensor(height//stride, height, 1,1))
             self.xw = nn.Parameter(torch.Tensor(width//stride, width, 1,1))
+            self.padding2 = _pair(0)
         else:
             self.cw = nn.Parameter(torch.Tensor(out_planes, in_planes, *self.kernel_size))
             self.yw = nn.Parameter(torch.Tensor(height//stride, height, *self.kernel_size))
             self.xw = nn.Parameter(torch.Tensor(width//stride, width, *self.kernel_size))
+            self.padding2 = self.padding
         if bnr:
             self.bn1 = nn.BatchNorm2d(height)
             self.bn2 = nn.BatchNorm2d(width)
@@ -93,11 +95,11 @@ class ConvCust(nn.Module):
         x = x.permute(0, 2, 3, 1).contiguous() #N H W C
         if self.bnr:
             x = F.relu(self.bn1(x))
-        x = F.conv2d(x, self.yw, self.yb, 1, self.padding)
+        x = F.conv2d(x, self.yw, self.yb, 1, self.padding2)
         x = x.permute(0, 2, 3, 1).contiguous() #N W C H
         if self.bnr:
             x = F.relu(self.bn2(x))
-        x = F.conv2d(x, self.xw, self.xb, 1, self.padding)
+        x = F.conv2d(x, self.xw, self.xb, 1, self.padding2)
         x = x.permute(0, 2, 3, 1).contiguous() #N C H W
         return x
 
@@ -140,7 +142,7 @@ class wide_basic(nn.Module):
             if stride != 1 and (res1s or resm):
                 if res1s:
                     self.shortcut = nn.Sequential(
-                        ConvCust(in_planes, planes, kernel_size=1, stride=stride, padding=padding, 
+                        ConvCust(in_planes, planes, kernel_size=1, stride=stride, padding=0, 
                                  bnr=resbnr2, bias=True, width=width, height=height),
                     )
                 else:
