@@ -241,13 +241,13 @@ class Wide_ResNet_RE1D_Slow(nn.Module):
         nStages = [16, 16*k, 32*k, 64*k]
 
         self.conv1 = conv3x3(3,nStages[0])
-        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, 1, width, height)
-        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, 2, width, height)
-        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, 2, width//2, height//2)
+        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, 1, args, width, height)
+        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, 2, args, width, height)
+        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, 2, args, width//2, height//2)
         self.bn1 = nn.BatchNorm2d(nStages[3], momentum=0.9)
         self.linear = nn.Linear(nStages[3], num_classes)
 
-    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride, width, height):
+    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride, args, width, height):
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
 
@@ -255,7 +255,10 @@ class Wide_ResNet_RE1D_Slow(nn.Module):
             if stride == 1:
                 layers.append(block(self.in_planes, planes, dropout_rate, stride))
             else:
-                layers.append(block(self.in_planes, planes, dropout_rate, width, height, args))
+                if args.g == 1:
+                    layers.append(resize_two(self.in_planes, planes, dropout_rate, width, height, args))
+                else:
+                    layers.append(resize_four(self.in_planes, planes, dropout_rate, width, height, args))
                 width = width // 2
                 height = height // 2
 
