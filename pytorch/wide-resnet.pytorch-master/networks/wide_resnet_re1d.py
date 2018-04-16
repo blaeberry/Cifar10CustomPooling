@@ -103,11 +103,12 @@ class ConvCust(nn.Module):
 
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, kernel, bnr, 
-                 order, all1, resbnr, res1s, resm, stride=1, width=32, height=32):
+                 order, all1, resbnr, resbnr2, res1s, resm, stride=1, width=32, height=32):
         super(wide_basic, self).__init__()
         self.order = order
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.resbnr = resbnr
+        self.stride = stride
         padding = 0
         if kernel > 1:
             padding = 1
@@ -140,12 +141,12 @@ class wide_basic(nn.Module):
                 if res1s:
                     self.shortcut = nn.Sequential(
                         ConvCust(in_planes, planes, kernel_size=1, stride=stride, padding=padding, 
-                                 bnr=bnr, bias=True, width=width, height=height),
+                                 bnr=resbnr2, bias=True, width=width, height=height),
                     )
                 else:
                     self.shortcut = nn.Sequential(
                         ConvCust(in_planes, planes, kernel_size=kernel, stride=stride, padding=padding, 
-                                 bnr=bnr, bias=True, width=width, height=height),
+                                 bnr=resbnr2, bias=True, width=width, height=height),
                     )
             else:
                 self.shortcut = nn.Sequential(
@@ -155,7 +156,7 @@ class wide_basic(nn.Module):
     def forward(self, x):
         out = self.dropout(self.conv1(F.relu(self.bn1(x))))
         out = self.conv2(F.relu(self.bn2(out)))
-        if self.resbnr:
+        if self.resbnr and self.stride != 1:
             out += self.shortcut(F.relu(self.bn3(x)))
         else:
             out += self.shortcut(x)
@@ -171,6 +172,7 @@ class Wide_ResNet_RE1D(nn.Module):
         self.order = args.order
         self.all = args.all
         self.resbnr = args.resbnr
+        self.resbnr2 = args.resbnr2
         self.res1s = args.res1s
         self.resm = args.resm
         self.width = width
@@ -196,7 +198,7 @@ class Wide_ResNet_RE1D(nn.Module):
 
         for stride in strides:
             layers.append(block(self.in_planes, planes, dropout_rate, self.kernel_size, self.bnr, self.order,
-                                self.all, self.resbnr, self.res1s, self.resm, stride, width, height))
+                                self.all, self.resbnr, self.resbnr2, self.res1s, self.resm, stride, width, height))
             if stride == 2:
                 width = width // 2
                 height = height // 2

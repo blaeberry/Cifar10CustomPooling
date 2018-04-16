@@ -34,6 +34,7 @@ parser.add_argument('--bnr', '-bnr', action='store_true', help='fine-grain batch
 parser.add_argument('--order', '-o', action='store_true', help='order striding like original')
 parser.add_argument('--all', '-a', action='store_true', help='apply re1d to all')
 parser.add_argument('--resbnr', action='store_true', help='apply bnr to residual')
+parser.add_argument('--resbnr2', action='store_true', help='apply bnr to residual')
 parser.add_argument('--res1s', action='store_true', help='apply k=1 re1d to residuals')
 parser.add_argument('--resm', action='store_true', help='apply matching k re1d to residuals')
 
@@ -137,7 +138,7 @@ def getNetwork(args):
         file_name = 'wide-resnet-re1d3-slow-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-re1d-slow'):
-        net = Wide_ResNet_RE1D_Slow(args.depth, args.widen_factor, args.dropout, num_classes, args.k, 32, 32)
+        net = Wide_ResNet_RE1D_Slow(args.depth, args.widen_factor, args.dropout, num_classes, args, 32, 32)
         file_name = 'wide-resnet-re1d-slow-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)+\
                     '-kernel-'+str(args.k)
