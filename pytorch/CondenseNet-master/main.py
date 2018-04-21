@@ -79,7 +79,9 @@ parser.add_argument('-dw', action='store_true',
 parser.add_argument('-bgates', action='store_true',
                     help='have gates for all pools')
 parser.add_argument('-nomax', action='store_true',
-                    help='no max pooling involved')
+                    help='no max pooling')
+parser.add_argument('-noavg', action='store_true',
+                    help='no avg pooling')
 
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set (default: false)')

@@ -1,4 +1,5 @@
 from .densenet import DenseNet as densenet
+from .densenet_cust import DenseNetCust as densenet_cust
 from .densenetre1d import DenseNetRe1d as densenetre1d
 from .densenetre1d_311 import DenseNetRe1d311 as densenetre1d_311
 from .densenetre1d_slow import DenseNetRe1dSlow as densenetre1d_slow
