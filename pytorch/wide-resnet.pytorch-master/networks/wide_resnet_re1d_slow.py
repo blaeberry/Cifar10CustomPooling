@@ -3,9 +3,12 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 from torch.autograd import Variable
+from torch.nn.modules.utils import _pair
+from torch.nn.modules.padding import ConstantPad3d
 
 import sys
 import numpy as np
+import math
 
 __all__ = ['Wide_ResNet_RE1D_Slow']
 
@@ -110,6 +113,10 @@ class wide_basic(nn.Module):
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
 
         self.shortcut = nn.Sequential()
+        if in_planes != planes:
+            self.shortcut = nn.Sequential(
+                    nn.Conv2d(in_planes, planes, kernel_size=1, stride=1, bias=True),
+                )
 
     def forward(self, x):
         out = self.dropout(self.conv1(F.relu(self.bn1(x))))
@@ -124,7 +131,7 @@ class resize_two(nn.Module):
         kernel = args.k
         bnr = args.bnr
         self.dense = False
-        if args.g > 1:
+        if args.g > 3:
             self.dense = True #NEED TO IMPLEMENT
 
         padding = 0
@@ -170,17 +177,16 @@ class resize_two(nn.Module):
 
 class resize_four(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, width, height, args):
-        super(resize_two, self).__init__()
+        super(resize_four, self).__init__()
         kernel = args.k
         bnr = args.bnr
         self.dense = False
-        if args.g > 1:
+        if args.g > 2:
             self.dense = True # NEED TO IMPLEMENT RESBNR
-
         padding = 0
         if kernel > 1:
             padding = 1
-
+#        self.resbnr = args.resbnr
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = ConvCust(in_planes, planes, kernel_size=kernel, stride=0.75, padding=padding, 
                               bnr=bnr, bias=True, width=width, height=height)
@@ -199,15 +205,17 @@ class resize_four(nn.Module):
                 )
 
         if self.dense: # JUST DOING res1s with ALL bnr for now !!!!!!!!!!!!!!!!!!
-            self.bn5 = nn.BatchNorm2d(in_planes)
+#            if self.resbnr:
+#                self.bn5 = nn.BatchNorm2d(in_planes)
             self.shortcut = nn.Sequential(
                     ConvCust(in_planes, planes, kernel_size=1, stride=0.75, padding=0, 
-                             bnr=True, bias=True, width=width, height=height),
+                             bnr=False, bias=True, width=width, height=height),
                 )
-            self.bn6 = nn.BatchNorm2d(in_planes)
+#            if self.resbnr:
+#                self.bn6 = nn.BatchNorm2d(planes)
             self.shortcut2 = nn.Sequential(
                     ConvCust(planes, planes, kernel_size=1, stride=2.0/3.0, padding=0, 
-                             bnr=True, bias=True, width=int(width*0.75), height=int(height*0.75)),
+                             bnr=False, bias=True, width=int(width*0.75), height=int(height*0.75)),
                 )
 
 
@@ -215,12 +223,18 @@ class resize_four(nn.Module):
         out = self.dropout(self.conv1(F.relu(self.bn1(x))))
         out = self.conv2(F.relu(self.bn2(out)))
         if self.dense:
-            out += self.shortcut(F.relu(self.bn5(x)))
+#            if self.resbnr:
+#                out += self.shortcut(F.relu(self.bn5(x)))
+#            else:
+            out += self.shortcut(x)
             res1 = 1*out
         out = self.conv3(F.relu(self.bn3(out)))
         out = self.conv4(F.relu(self.bn4(out)))
         if self.dense:
-            out += self.shortcut2(F.relu(self.bn6(res1)))
+#            if self.resbnr:
+#                out += self.shortcut2(F.relu(self.bn6(res1)))
+#            else:
+            out += self.shortcut2(res1)
         else:
             out += self.shortcut(x)
 
