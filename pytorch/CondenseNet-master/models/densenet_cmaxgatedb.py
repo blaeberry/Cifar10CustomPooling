@@ -33,6 +33,7 @@ class cmaxgb(nn.Module):
         self.nc = num_convs
         self.dw = args.dw
         self.bnr = args.bnr
+        self.b = args.bgates
 
         if self.bnr:
             self.norm = nn.BatchNorm2d(in_planes)
