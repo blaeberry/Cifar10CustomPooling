@@ -124,10 +124,11 @@ class _Transition(nn.Module):
             # 1x1 into 3x3 conv stride 2 dw
             self.conv = Conv(in_channels, out_channels, kernel_size=1)
             self.pool = Conv(out_channels, out_channels, kernel_size=args.kernel_size, 
-                padding=padding, stride=2, groups=in_channels)
+                padding=padding, stride=2, groups=out_channels)
         elif args.noavg and args.nomax:
             # 1x1 stride 2
             self.conv = Conv(in_channels, out_channels, kernel_size=1, stride=2)
+            self.pool = nn.Sequential()
         else:
             self.conv = Conv(in_channels, out_channels,
                              kernel_size=1, groups=args.group_1x1)
