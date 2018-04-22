@@ -21,6 +21,7 @@ def make_divisible(x, y):
 class mixgb(nn.Module):
     def __init__(self, args, stride=2, padding=0):
         super(mixgb, self).__init__()
+        kernel_size = args.kernel_size
         self.kernel_size = _pair(args.kernel_size)
         self.stride = stride
         self.padding = _pair(padding)
@@ -40,12 +41,12 @@ class mixgb(nn.Module):
                 self.aw = nn.Parameter(torch.Tensor(1))
 
     def __repr__(self):
-        s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
+        s = ('{name}(kernel_size={kernel_size}'
              ', stride={stride}')
         if self.padding != (0,) * len(self.padding):
             s += ', padding={padding}'
-        if self.bias is None:
-            s += ', bias=False'
+        #if self.bias is None:
+        #    s += ', bias=False'
         s += ')'
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
