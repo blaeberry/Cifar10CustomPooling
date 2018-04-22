@@ -99,12 +99,39 @@ class _DenseBlock(nn.Sequential):
 class _Transition(nn.Module):
     def __init__(self, in_channels, out_channels, args):
         super(_Transition, self).__init__()
-        self.conv = Conv(in_channels, out_channels,
-                         kernel_size=1, groups=args.group_1x1)
         padding = 0
         if args.kernel_size == 3:
             padding = 1
-        self.pool = mixgb(args, padding=padding)
+
+        if args.convs:
+            if args.no1x1:
+                # purely 3x3 conv stride 2
+                self.conv = Conv(in_channels, out_channels, 
+                    kernel_size=args.kernel_size, padding=padding, stride=2)
+                self.pool = nn.Sequential()
+            elif args.dw:
+                # depthwise separable convolutions
+                self.conv = Conv(in_channels, in_channels, kernel_size=args.kernel_size, 
+                    padding=padding, groups=in_channels, stride=2)
+                self.pool = Conv(in_channels, out_channels, kernel_size=1)
+            else:
+                # 1x1 into 3x3 conv stride 2
+                self.conv = Conv(in_channels, out_channels, 
+                    kernel_size=1, padding=padding, groups=args.group_1x1)
+                self.pool = Conv(out_channels, out_channels, kernel_size=args.kernel_size, 
+                    padding=padding, stride=2)
+        elif args.dw:
+            # 1x1 into 3x3 conv stride 2 dw
+            self.conv = Conv(in_channels, out_channels, kernel_size=1)
+            self.pool = Conv(out_channels, out_channels, kernel_size=args.kernel_size, 
+                padding=padding, stride=2, groups=in_channels)
+        elif args.noavg and args.nomax:
+            # 1x1 stride 2
+            self.conv = Conv(in_channels, out_channels, kernel_size=1, stride=2)
+        else:
+            self.conv = Conv(in_channels, out_channels,
+                             kernel_size=1, groups=args.group_1x1)
+            self.pool = mixgb(args, padding=padding)
 
     def forward(self, x):
         x = self.conv(x)
