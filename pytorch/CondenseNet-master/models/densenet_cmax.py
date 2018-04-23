@@ -82,7 +82,7 @@ class cmaxgb(nn.Module):
             if not self.dw:
                 pconv = pconv.repeat(self.out_channels,1,1,1)
             if self.b:
-                ele_bias = self.pbs.select(1, c).contiguous()/(self.kernel_size**2)
+                ele_bias = self.pbs.select(1, c).contiguous()
                 pool_out = F.conv2d(x, pconv*ele_bias, None, self.stride, self.padding, groups = self.in_channels)
             else:
                 pool_out = F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
@@ -182,11 +182,14 @@ class DenseNetCmax(nn.Module):
                 m.pgates.data.normal_(0, math.sqrt(2. / n))
                 m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
-                if self.dw:
+                if m.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
                 m.mb.data.zero_()
                 m.pbs.data.zero_()
-                m.gbs.data.zero_()
+                if m.b:
+                    if not m.nomax:
+                        m.mb.data.fill_(1)
+                    m.pbs.data.fill_(1)
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
