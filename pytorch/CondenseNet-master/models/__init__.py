@@ -7,6 +7,7 @@ from .densenetre1d_slow_bnr import DenseNetRe1dSlowBNR as densenetre1d_slow_bnr
 from .densenet_ppb import DenseNetPPB as densenet_ppb
 from .densenet_mixgateda import DenseNetMixGatedA as densenet_mixgateda
 from .densenet_mixgatedb import DenseNetMixGatedB as densenet_mixgatedb
+from .densenet_cmax import DenseNetCmax as densenet_cmax
 from .densenet_cmaxgatedb import DenseNetCmaxGatedB as densenet_cmaxgatedb
 from .densenet_cmaxgatedb2 import DenseNetCmaxGatedB2 as densenet_cmaxgatedb2
 from .densenet_cmaxgateda2 import DenseNetCmaxGatedA2 as densenet_cmaxgateda2

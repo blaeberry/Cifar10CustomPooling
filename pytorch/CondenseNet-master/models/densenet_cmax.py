@@ -12,62 +12,85 @@ from layers import Conv
 from torch.nn.modules.utils import _pair
 from torch.nn.modules.padding import ConstantPad3d
 
-__all__ = ['DenseNetCust']
+__all__ = ['DenseNetCmax']
 
 
 def make_divisible(x, y):
     return int((x // y + 1) * y) if x % y else int(x)
 
-class mixgb(nn.Module):
-    def __init__(self, args, stride=2, padding=0):
-        super(mixgb, self).__init__()
-        kernel_size = args.kernel_size
-        self.kernel_size = _pair(args.kernel_size)
+class cmaxgb(nn.Module):
+    def __init__(self, in_planes, out_planes, args, stride=2, kernel_size=2, padding=0, 
+            bias=True, width=32, height=32, num_convs = 4):
+        super(cmaxgb, self).__init__()
+        self.in_channels = in_planes
+        self.out_channels = out_planes
+        self.kernel_size = kernel_size
         self.stride = stride
-        self.padding = _pair(padding)
-        self.b = args.bgates
+        self.padding = padding
+        self.width = width
+        self.height = height
+        self.bias = bias
         self.nomax = args.nomax
-        self.noavg = args.noavg
+        if self.nomax:
+            num_convs += 1
+        self.nc = num_convs
+        self.dw = args.dw
+        self.bnr = args.bnr
+        self.b = args.bgates
 
-        if self.noavg:
+        if self.bnr:
+            self.norm = nn.BatchNorm2d(in_planes)
+            self.relu = nn.ReLU(inplace=True)
+        if not self.nomax:
             self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
-        elif self.nomax:
-            self.avgpool = nn.AvgPool2d(kernel_size, stride, padding)
+
+        if self.dw:
+            self.pconvs = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
         else:
-            self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
-            self.avgpool = nn.AvgPool2d(kernel_size, stride, padding)
-            self.mw = nn.Parameter(torch.Tensor(1))
+            self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
+        if bias:
             if self.b:
-                self.aw = nn.Parameter(torch.Tensor(1))
+                if not self.nomax:
+                    self.mb = nn.Parameter(torch.Tensor(1))
+                self.pbs = nn.Parameter(torch.Tensor(1, num_convs))
+            else:
+                if not self.nomax:
+                    self.mb = nn.Parameter(torch.Tensor(1, out_planes, 1, 1))
+                self.pbs = nn.Parameter(torch.Tensor(out_planes, num_convs))
+        else:
+            self.register_parameter('bias', None)
 
     def __repr__(self):
-        s = ('{name}(kernel_size={kernel_size}'
+        s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
              ', stride={stride}')
         if self.padding != (0,) * len(self.padding):
             s += ', padding={padding}'
-        #if self.bias is None:
-        #    s += ', bias=False'
+        if self.bias is None:
+            s += ', bias=False'
         s += ')'
         return s.format(name=self.__class__.__name__, **self.__dict__)
 
     def forward(self, x):
-        if self.noavg:
-            out = self.maxpool(x)
-        elif self.nomax:
-            out = self.avgpool(x)
-        else:
+        if self.bnr:
+            x = self.norm(x)
+            x = self.relu(x)
+        if not self.nomax:
             max_out = self.maxpool(x)
-            avg_out = self.avgpool(x)
-            max_w = self.mw
+            out = max_out*mb
+        for c in range(self.nc):
+            pconv = self.pconvs.select(4, c).contiguous()
+            if not self.dw:
+                pconv = pconv.repeat(self.out_channels,1,1,1)
             if self.b:
-                avg_w = self.aw
+                ele_bias = self.pbs.select(1, c).contiguous()/(self.kernel_size**2)
+                pool_out = F.conv2d(x, pconv*ele_bias, None, self.stride, self.padding, groups = self.in_channels)
             else:
-                max_w = F.sigmoid(max_w)
-                avg_w = 1.0 - max_w
-            out = (max_out*max_w)+(avg_out*avg_w)
-
+                pool_out = F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
+            if self.nomax and c == 0:
+                out = pool_out
+            else:
+                out += pool_out
         return out
-
 
 class _DenseLayer(nn.Module):
     def __init__(self, in_channels, growth_rate, args):
@@ -97,63 +120,33 @@ class _DenseBlock(nn.Sequential):
 
 
 class _Transition(nn.Module):
-    def __init__(self, in_channels, out_channels, args):
+    def __init__(self, in_channels, out_channels, args, width, height):
         super(_Transition, self).__init__()
+        self.conv = Conv(in_channels, out_channels,
+                         kernel_size=1, groups=args.group_1x1)
         padding = 0
         if args.kernel_size == 3:
             padding = 1
-
-        if args.convs:
-            if args.no1x1:
-                # purely 3x3 conv stride 2
-                self.conv = Conv(in_channels, out_channels, 
-                    kernel_size=args.kernel_size, padding=padding, stride=2)
-                self.pool = nn.Sequential()
-            elif args.dw:
-                # depthwise separable convolutions
-                self.conv = Conv(in_channels, out_channels, kernel_size=args.kernel_size, 
-                    padding=padding, groups=in_channels, stride=2)
-                #self.pool = Conv(in_channels, out_channels, kernel_size=1)
-                self.pool = nn.Conv2d(out_channels, out_channels,
-                    kernel_size=1, stride=2, bias=True) #adding bias because no BN before
-            else:
-                # 1x1 into 3x3 conv stride 2
-                self.conv = Conv(in_channels, out_channels, 
-                    kernel_size=1, padding=padding, groups=args.group_1x1)
-                #self.pool = Conv(out_channels, out_channels, kernel_size=args.kernel_size, 
-                #    padding=padding, stride=2)
-                self.pool = nn.Conv2d(out_channels, out_channels, kernel_size=args.kernel_size, 
-                    padding=padding, stride=2, bias=True) #adding bias because no BN before
-        elif args.dw:
-            # 1x1 into 3x3 conv stride 2 dw
-            self.conv = Conv(in_channels, in_channels, kernel_size=1)
-            # self.pool = Conv(out_channels, out_channels, kernel_size=args.kernel_size, 
-                # padding=padding, stride=2, groups=out_channels)
-            self.pool = nn.Conv2d(in_channels, out_channels, kernel_size=args.kernel_size, 
-                    padding=padding, stride=2, bias=True, groups=in_channels) #adding bias because no BN before
-        elif args.noavg and args.nomax:
-            # 1x1 stride 2
-            self.conv = Conv(in_channels, out_channels, kernel_size=1, stride=2)
-            self.pool = nn.Sequential()
-        else:
-            self.conv = Conv(in_channels, out_channels,
-                             kernel_size=1, groups=args.group_1x1)
-            self.pool = mixgb(args, padding=padding)
+        self.pool = cmaxgb(out_channels, out_channels, args=args, kernel_size=args.kernel_size,
+                             stride=2, padding=padding, width=width, height=height)
 
     def forward(self, x):
         x = self.conv(x)
         x = self.pool(x)
         return x
 
-
-class DenseNetCust(nn.Module):
+class DenseNetCmax(nn.Module):
     def __init__(self, args):
 
-        super(DenseNetCust, self).__init__()
+        super(DenseNetCmax, self).__init__()
 
+        self.width = 32
+        self.height = 32
         self.stages = args.stages
         self.growth = args.growth
         self.reduction = args.reduction
+        self.bnr = args.bnr
+        self.dw = args.dw
         assert len(self.stages) == len(self.growth)
         self.args = args
         self.progress = 0.0
@@ -184,6 +177,16 @@ class DenseNetCust(nn.Module):
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
                 m.weight.data.normal_(0, math.sqrt(2. / n))
+            if isinstance(m, cmaxgb):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.pgates.data.normal_(0, math.sqrt(2. / n))
+                m.maxgate.data.normal_(0, math.sqrt(2. / n))
+                m.pconvs.data.fill_(1)
+                if self.dw:
+                    m.pconvs.data.normal_(0, math.sqrt(2. / n))
+                m.mb.data.zero_()
+                m.pbs.data.zero_()
+                m.gbs.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
@@ -206,7 +209,9 @@ class DenseNetCust(nn.Module):
                                           self.args.group_1x1)
             trans = _Transition(in_channels=self.num_features,
                                 out_channels=out_features,
-                                args=self.args)
+                                args=self.args, 
+                                width=self.width//(2**(i)), 
+                                height=self.height//(2**(i)))
             self.features.add_module('transition_%d' % (i + 1), trans)
             self.num_features = out_features
         else:
