@@ -111,11 +111,11 @@ class _Transition(nn.Module):
                 self.pool = nn.Sequential()
             elif args.dw:
                 # depthwise separable convolutions
-                self.conv = Conv(in_channels, out_channels, kernel_size=args.kernel_size, 
+                self.conv = Conv(in_channels, in_channels, kernel_size=args.kernel_size, 
                     padding=padding, groups=in_channels, stride=2)
                 #self.pool = Conv(in_channels, out_channels, kernel_size=1)
-                self.pool = nn.Conv2d(out_channels, out_channels,
-                    kernel_size=1, stride=2, bias=True) #adding bias because no BN before
+                self.pool = nn.Conv2d(in_channels, out_channels,
+                    kernel_size=1, bias=True) #adding bias because no BN before
             else:
                 # 1x1 into 3x3 conv stride 2
                 self.conv = Conv(in_channels, out_channels, 
@@ -126,11 +126,11 @@ class _Transition(nn.Module):
                     padding=padding, stride=2, bias=True) #adding bias because no BN before
         elif args.dw:
             # 1x1 into 3x3 conv stride 2 dw
-            self.conv = Conv(in_channels, in_channels, kernel_size=1)
+            self.conv = Conv(in_channels, out_channels, kernel_size=1)
             # self.pool = Conv(out_channels, out_channels, kernel_size=args.kernel_size, 
                 # padding=padding, stride=2, groups=out_channels)
-            self.pool = nn.Conv2d(in_channels, out_channels, kernel_size=args.kernel_size, 
-                    padding=padding, stride=2, bias=True, groups=in_channels) #adding bias because no BN before
+            self.pool = nn.Conv2d(out_channels, out_channels, kernel_size=args.kernel_size, 
+                    padding=padding, stride=2, bias=True, groups=out_channels) #adding bias because no BN before
         elif args.noavg and args.nomax:
             # 1x1 stride 2
             self.conv = Conv(in_channels, out_channels, kernel_size=1, stride=2)

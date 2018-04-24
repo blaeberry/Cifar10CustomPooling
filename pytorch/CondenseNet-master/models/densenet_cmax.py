@@ -24,7 +24,7 @@ class cmaxgb(nn.Module):
         super(cmaxgb, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
-        self.kernel_size = kernel_size
+        self.kernel_size = _pair(kernel_size)
         self.stride = stride
         self.padding = padding
         self.width = width
@@ -63,7 +63,7 @@ class cmaxgb(nn.Module):
     def __repr__(self):
         s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
              ', stride={stride}')
-        if self.padding != (0,) * len(self.padding):
+        if self.padding != 0:
             s += ', padding={padding}'
         if self.bias is None:
             s += ', bias=False'
@@ -76,7 +76,7 @@ class cmaxgb(nn.Module):
             x = self.relu(x)
         if not self.nomax:
             max_out = self.maxpool(x)
-            out = max_out*mb
+            out = max_out*self.mb
         for c in range(self.nc):
             pconv = self.pconvs.select(4, c).contiguous()
             if not self.dw:
@@ -179,12 +179,13 @@ class DenseNetCmax(nn.Module):
                 m.weight.data.normal_(0, math.sqrt(2. / n))
             if isinstance(m, cmaxgb):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-                m.pgates.data.normal_(0, math.sqrt(2. / n))
-                m.maxgate.data.normal_(0, math.sqrt(2. / n))
+                #m.pgates.data.normal_(0, math.sqrt(2. / n))
+                #m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
                 if m.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
-                m.mb.data.zero_()
+                if not m.nomax:
+                    m.mb.data.zero_()
                 m.pbs.data.zero_()
                 if m.b:
                     if not m.nomax:
