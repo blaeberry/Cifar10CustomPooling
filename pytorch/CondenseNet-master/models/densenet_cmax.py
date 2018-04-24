@@ -31,8 +31,9 @@ class cmaxgb(nn.Module):
         self.height = height
         self.bias = bias
         self.nomax = args.nomax
-        if self.nomax:
-            num_convs += 1
+        num_convs = args.nc
+        if not self.nomax:
+            num_convs -= 1
         self.nc = num_convs
         self.dw = args.dw
         self.bnr = args.bnr

@@ -72,6 +72,8 @@ parser.add_argument('--group-lasso-lambda', default=0., type=float, metavar='LAS
 
 parser.add_argument('--kernel-size', default=2, type=int, metavar='K',
                     help='Kernel size for re1d and pooling (default: 2)')
+parser.add_argument('--nc', default=4, type=int, metavar='NUM CONVS',
+                    help='number of convolutions in cmax (default: 4)')
 parser.add_argument('-bnr', action='store_true',
                     help='more batch norm relu for ops')
 parser.add_argument('-dw', action='store_true',
