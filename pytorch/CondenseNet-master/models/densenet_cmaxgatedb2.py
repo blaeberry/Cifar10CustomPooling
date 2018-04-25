@@ -29,7 +29,7 @@ class cmaxgb2(nn.Module):
         self.padding = _pair(padding)
         self.width = width
         self.height = height
-        self.bias = bias
+        self.bias = not args.convs
         self.levels = levels
         self.leaves = levels**2
         self.dw = args.dw
@@ -55,7 +55,7 @@ class cmaxgb2(nn.Module):
         else:
             self.pgates = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, (self.leaves+levels)//2))
 
-        if bias:
+        if self.bias:
             self.mb = nn.Parameter(torch.Tensor(out_planes))
             self.pbs = nn.Parameter(torch.Tensor(out_planes, self.leaves))
             if self.b:
@@ -63,7 +63,9 @@ class cmaxgb2(nn.Module):
             else:
                 self.gbs = nn.Parameter(torch.Tensor(out_planes, (self.leaves+levels)//2))
         else:
-            self.register_parameter('bias', None)
+            self.mb = None
+            self.pbs = None
+            self.gbs = None
 
     def __repr__(self):
         s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
@@ -229,8 +231,9 @@ class DenseNetCmaxGatedB2(nn.Module):
                 if not args.nomax:
                     m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
-                if self.args.dw:
+                if m.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
+            if m.bias:
                 m.mb.data.zero_()
                 m.pbs.data.zero_()
                 m.gbs.data.zero_()

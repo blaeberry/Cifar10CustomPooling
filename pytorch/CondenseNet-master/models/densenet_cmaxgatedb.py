@@ -20,7 +20,7 @@ def make_divisible(x, y):
 
 class cmaxgb(nn.Module):
     def __init__(self, in_planes, out_planes, args, stride=2, kernel_size=2, padding=0, 
-            bias=True, width=32, height=32, num_convs = 4):
+            bias=True, width=32, height=32):
         super(cmaxgb, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
@@ -29,8 +29,8 @@ class cmaxgb(nn.Module):
         self.padding = _pair(padding)
         self.width = width
         self.height = height
-        self.bias = bias
-        self.nc = num_convs
+        self.bias = not args.convs
+        self.nc = args.nc-1
         self.dw = args.dw
         self.bnr = args.bnr
         self.b = args.bgates
@@ -46,12 +46,14 @@ class cmaxgb(nn.Module):
         else:
             self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
         self.pgates = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
-        if bias:
+        if self.bias:
             self.mb = nn.Parameter(torch.Tensor(out_planes))
             self.pbs = nn.Parameter(torch.Tensor(out_planes, num_convs))
             self.gbs = nn.Parameter(torch.Tensor(out_planes, num_convs))
         else:
-            self.register_parameter('bias', None)
+            self.mb = None
+            self.pbs = None
+            self.gbs = None
 
     def __repr__(self):
         s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
@@ -171,8 +173,9 @@ class DenseNetCmaxGatedB(nn.Module):
                 m.pgates.data.normal_(0, math.sqrt(2. / n))
                 m.maxgate.data.normal_(0, math.sqrt(2. / n))
                 m.pconvs.data.fill_(1)
-                if self.dw:
+                if m.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
+            if m.bias:
                 m.mb.data.zero_()
                 m.pbs.data.zero_()
                 m.gbs.data.zero_()

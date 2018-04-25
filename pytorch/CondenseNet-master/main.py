@@ -87,7 +87,7 @@ parser.add_argument('-noavg', action='store_true',
 parser.add_argument('-no1x1', action='store_true',
                     help='no 1x1 spatial')
 parser.add_argument('-convs', action='store_true',
-                    help='no 1x1 spatial')
+                    help='no 1x1 spatial, no bias for cmax gates')
 
 parser.add_argument('--evaluate', action='store_true',
                     help='evaluate model on validation set (default: false)')
