@@ -31,6 +31,7 @@ class cmaxgb(nn.Module):
         self.height = height
         self.bias = not args.convs
         self.nc = args.nc-1
+        num_convs = self.nc
         self.dw = args.dw
         self.bnr = args.bnr
         self.b = args.bgates
@@ -78,8 +79,12 @@ class cmaxgb(nn.Module):
             pgate = self.pgates.select(4, c).contiguous()
             if not self.dw:
                 pconv = pconv.repeat(self.out_channels,1,1,1)
-            gate_out = F.conv2d(x, pgate, self.gbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
-            pool_out =  F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
+            if self.bias:
+                gate_out = F.conv2d(x, pgate, self.gbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
+                pool_out =  F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
+            else:
+                gate_out = F.conv2d(x, pgate, None, self.stride, self.padding, groups = self.in_channels)
+                pool_out =  F.conv2d(x, pconv, None, self.stride, self.padding, groups = self.in_channels)
             out += gate_out*pool_out
         return out
 
@@ -175,10 +180,10 @@ class DenseNetCmaxGatedB(nn.Module):
                 m.pconvs.data.fill_(1)
                 if m.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
-            if m.bias:
-                m.mb.data.zero_()
-                m.pbs.data.zero_()
-                m.gbs.data.zero_()
+                if m.bias:
+                    m.mb.data.zero_()
+                    m.pbs.data.zero_()
+                    m.gbs.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()

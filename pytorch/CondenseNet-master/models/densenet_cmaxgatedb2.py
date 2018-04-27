@@ -94,24 +94,40 @@ class cmaxgb2(nn.Module):
             if self.b:
                 pgate1 = self.pgates.select(4, c*2).contiguous()
                 pgate2 = self.pgates.select(4, (c*2)+1).contiguous()
-                gate_out1 = F.conv2d(x, pgate1, self.gbs.select(1, c*2).contiguous(), 
+                if self.bias:
+                    gate_out1 = F.conv2d(x, pgate1, self.gbs.select(1, c*2).contiguous(), 
                                      self.stride, self.padding, groups = self.in_channels)
-                gate_out2 = F.conv2d(x, pgate2, self.gbs.select(1, (c*2)+1).contiguous(), 
+                    gate_out2 = F.conv2d(x, pgate2, self.gbs.select(1, (c*2)+1).contiguous(), 
                                      self.stride, self.padding, groups = self.in_channels)
+                else:
+                    gate_out1 = F.conv2d(x, pgate1, None, 
+                                     self.stride, self.padding, groups = self.in_channels)
+                    gate_out2 = F.conv2d(x, pgate2, None, 
+                                     self.stride, self.padding, groups = self.in_channels)
+
             else:
                 pgate1 = self.pgates.select(4, c*2).contiguous()
-                gate_out1 = F.conv2d(x, pgate1, self.gbs.select(1, c).contiguous(), 
+                if self.bias:
+                    gate_out1 = F.conv2d(x, pgate1, self.gbs.select(1, c).contiguous(), 
                                      self.stride, self.padding, groups = self.in_channels)
+                else:
+                    gate_out1 = F.conv2d(x, pgate1, None, 
+                                     self.stride, self.padding, groups = self.in_channels)                    
                 gate_out1 = F.sigmoid(gate_out1)
                 gate_out2 = 1.0 - gate_out1
 
             if not self.dw:
                 pconv1 = pconv1.repeat(self.out_channels,1,1,1)
                 pconv2 = pconv2.repeat(self.out_channels,1,1,1)
-
-            pool1_out =  F.conv2d(x, pconv1, self.pbs.select(1, c*2).contiguous(), 
+            if self.bias:
+                pool1_out =  F.conv2d(x, pconv1, self.pbs.select(1, c*2).contiguous(), 
                                   self.stride, self.padding, groups = self.in_channels)
-            pool2_out =  F.conv2d(x, pconv2, self.pbs.select(1, (c*2)+1).contiguous(), 
+                pool2_out =  F.conv2d(x, pconv2, self.pbs.select(1, (c*2)+1).contiguous(), 
+                                  self.stride, self.padding, groups = self.in_channels)
+            else:
+                pool1_out =  F.conv2d(x, pconv1, None, 
+                                  self.stride, self.padding, groups = self.in_channels)
+                pool2_out =  F.conv2d(x, pconv2, None, 
                                   self.stride, self.padding, groups = self.in_channels)
             leaves.append(gate_out1*pool1_out)
             leaves.append(gate_out2*pool2_out)
@@ -122,15 +138,22 @@ class cmaxgb2(nn.Module):
             if self.b:
                 pgate1 = self.pgates.select(4, self.leaves+(n*2)).contiguous()
                 pgate2 = self.pgates.select(4, self.leaves+(n*2)+1).contiguous()
-                gb1 = self.gbs.select(1, self.leaves+(n*2)).contiguous()
-                gb2 = self.gbs.select(1, self.leaves+(n*2)+1).contiguous()
+                if self.bias:
+                    gb1 = self.gbs.select(1, self.leaves+(n*2)).contiguous()
+                    gb2 = self.gbs.select(1, self.leaves+(n*2)+1).contiguous()
+                else:
+                    gb1 = None
+                    gb2 = None
                 gate_out1 = F.conv2d(nodes[n*2], pgate1, gb1, 
                                      1, self.padding, groups = self.in_channels)
                 gate_out2 = F.conv2d(nodes[(n*2)+1], pgate2, gb2, 
                      1, self.padding, groups = self.in_channels)
             else:
                 pgate1 = self.pgates.select(4, (self.leaves//2)+n).contiguous()
-                gb1 = self.gbs.select(1, (self.leaves//2)+n).contiguous()
+                if self.bias:
+                    gb1 = self.gbs.select(1, (self.leaves//2)+n).contiguous()
+                else:
+                    gb1 = None
                 gate_out1 = F.conv2d(nodes[n*2], pgate1, gb1, 
                                      1, self.padding, groups = self.in_channels)
                 gate_out1 = F.sigmoid(gate_out1)
@@ -233,10 +256,10 @@ class DenseNetCmaxGatedB2(nn.Module):
                 m.pconvs.data.fill_(1)
                 if m.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
-            if m.bias:
-                m.mb.data.zero_()
-                m.pbs.data.zero_()
-                m.gbs.data.zero_()
+                if m.bias:
+                    m.mb.data.zero_()
+                    m.pbs.data.zero_()
+                    m.gbs.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
