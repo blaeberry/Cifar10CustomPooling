@@ -31,13 +31,16 @@ class cmaxgb(nn.Module):
         self.height = height
         self.bias = bias
         self.nomax = args.nomax
+        self.b = args.bgates
         num_convs = args.nc
         if not self.nomax:
-            num_convs -= 1
+            num_convs = num_convs-1
+        if not self.b:
+            num_convs = 1
         self.nc = num_convs
         self.dw = args.dw
         self.bnr = args.bnr
-        self.b = args.bgates
+        self.onebias = args.convs
 
         if self.bnr:
             self.norm = nn.BatchNorm2d(in_planes)
@@ -45,21 +48,36 @@ class cmaxgb(nn.Module):
         if not self.nomax:
             self.maxpool = nn.MaxPool2d(kernel_size, stride, padding)
 
-        if self.dw:
-            self.pconvs = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
-        else:
-            self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
-        if bias:
-            if self.b:
-                if not self.nomax:
-                    self.mb = nn.Parameter(torch.Tensor(1))
-                self.pbs = nn.Parameter(torch.Tensor(1, num_convs))
+        if self.b:
+            if self.dw:
+                self.pconvs = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
             else:
-                if not self.nomax:
-                    self.mb = nn.Parameter(torch.Tensor(1, out_planes, 1, 1))
-                self.pbs = nn.Parameter(torch.Tensor(out_planes, num_convs))
+                self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
+
+            if bias:
+                if self.onebias:
+                    if not self.nomax:
+                        self.mb = nn.Parameter(torch.Tensor(1))
+                    self.pbs = nn.Parameter(torch.Tensor(1, num_convs))
+                else:
+                    if not self.nomax:
+                        self.mb = nn.Parameter(torch.Tensor(1, out_planes, 1, 1))
+                    self.pbs = nn.Parameter(torch.Tensor(out_planes, num_convs))
+            else:
+                self.register_parameter('bias', None)
         else:
-            self.register_parameter('bias', None)
+            if self.nomax:
+                num_convs = 2
+
+            if self.dw:
+                self.pconvs = nn.Parameter(torch.Tensor(out_planes, 1, kernel_size, kernel_size, num_convs))
+            else:
+                self.pconvs = nn.Parameter(torch.Tensor(1, 1, kernel_size, kernel_size, num_convs))
+
+            if bias:
+                self.mb = nn.Parameter(torch.Tensor(1))
+            else:
+                self.register_parameter('bias', None)
 
     def __repr__(self):
         s = ('{name}({in_channels}, {out_channels}, kernel_size={kernel_size}'
@@ -77,17 +95,26 @@ class cmaxgb(nn.Module):
             x = self.relu(x)
         if not self.nomax:
             max_out = self.maxpool(x)
-            out = max_out*self.mb
+            out = max_out+self.mb
+        elif not self.b:
+            max_out = self.pconvs.select(4, 1).contiguous()
+            if not self.dw:
+                max_out = max_out.repeat(self.out_channels,1,1,1)
+            out = F.conv2d(x, max_out+F.sigmoid(self.mb), None, self.stride, self.padding, groups = self.in_channels)
+
         for c in range(self.nc):
             pconv = self.pconvs.select(4, c).contiguous()
             if not self.dw:
                 pconv = pconv.repeat(self.out_channels,1,1,1)
             if self.b:
-                ele_bias = self.pbs.select(1, c).contiguous()
-                pool_out = F.conv2d(x, pconv*ele_bias, None, self.stride, self.padding, groups = self.in_channels)
+                if self.onebias:
+                    ele_bias = self.pbs.select(1, c).contiguous()
+                    pool_out = F.conv2d(x, pconv+ele_bias, None, self.stride, self.padding, groups = self.in_channels)
+                else:
+                    pool_out = F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
             else:
-                pool_out = F.conv2d(x, pconv, self.pbs.select(1, c).contiguous(), self.stride, self.padding, groups = self.in_channels)
-            if self.nomax and c == 0:
+                pool_out = F.conv2d(x, pconv+(1.0 - F.sigmoid(self.mb)), None, self.stride, self.padding, groups = self.in_channels)
+            if self.nomax and c == 0 and self.b:
                 out = pool_out
             else:
                 out += pool_out
@@ -188,10 +215,6 @@ class DenseNetCmax(nn.Module):
                 if not m.nomax:
                     m.mb.data.zero_()
                 m.pbs.data.zero_()
-                if m.b:
-                    if not m.nomax:
-                        m.mb.data.fill_(1)
-                    m.pbs.data.fill_(1)
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
