@@ -175,7 +175,7 @@ class DenseNetCust(nn.Module):
                                                         bias=False))
         for i in range(len(self.stages)):
             ### Dense-block i
-            self.add_block(i)
+            self.add_block(i, args)
         ### Linear layer
         self.classifier = nn.Linear(self.num_features, args.num_classes)
 
@@ -196,7 +196,7 @@ class DenseNetCust(nn.Module):
                     m.aw.data.fill_(0.5)
 
 
-    def add_block(self, i):
+    def add_block(self, i, args):
         ### Check if ith is the last one
         last = (i == len(self.stages) - 1)
         block = _DenseBlock(
@@ -217,12 +217,23 @@ class DenseNetCust(nn.Module):
             self.num_features = out_features
         else:
             self.features.add_module('norm_last',
-                                     nn.BatchNorm2d(self.num_features))
+                         nn.BatchNorm2d(self.num_features))
             self.features.add_module('relu_last',
                                      nn.ReLU(inplace=True))
-            ### Use adaptive ave pool as global pool
-            self.features.add_module('pool_last',
-                                     nn.AvgPool2d(self.pool_size))
+            if args.dw and args.noavg:
+                self.features.add_module('1x1_last', nn.Conv2d(self.num_features, self.num_features,
+                                          kernel_size=1,
+                                          stride=1,
+                                          padding=0, bias=False))
+                self.features.add_module('dw_last', nn.Conv2d(self.num_features, self.num_features,
+                                          kernel_size=self.pool_size,
+                                          stride=1,
+                                          padding=0, bias=True,
+                                          groups=self.num_features))
+            else:
+                ### Use adaptive ave pool as global pool
+                self.features.add_module('pool_last',
+                                         nn.AvgPool2d(self.pool_size))
 
     def forward(self, x, progress=None):
         features = self.features(x)
