@@ -24,7 +24,7 @@ class cmaxgb2(nn.Module):
         super(cmaxgb2, self).__init__()
         self.in_channels = in_planes
         self.out_channels = out_planes
-        self.kernel_size = _pair(kernel_size)
+        self.kernel_size = kernel_size
         self.stride = stride #replacing stride with reduction operation
         self.padding = _pair(padding)
         self.width = width
@@ -135,6 +135,8 @@ class cmaxgb2(nn.Module):
         for n in range(self.leaves//2):
             nodes.append(leaves[n*2]+leaves[n*2+1])
         for n in range(len(nodes)//2):
+            if self.kernel_size == 2:
+                nodes[n*2] = F.pad(nodes[n*2], (0,1,0,1))
             if self.b:
                 pgate1 = self.pgates.select(4, self.leaves+(n*2)).contiguous()
                 pgate2 = self.pgates.select(4, self.leaves+(n*2)+1).contiguous()
