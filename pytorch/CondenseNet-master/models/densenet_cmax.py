@@ -212,9 +212,10 @@ class DenseNetCmax(nn.Module):
                 m.pconvs.data.fill_(1)
                 if m.dw:
                     m.pconvs.data.normal_(0, math.sqrt(2. / n))
-                if not m.nomax:
+                if (not m.nomax) or (not m.b):
                     m.mb.data.zero_()
-                m.pbs.data.zero_()
+                if m.b:
+                    m.pbs.data.zero_()
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()

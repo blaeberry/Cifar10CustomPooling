@@ -190,7 +190,8 @@ class DenseNetCust(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
             elif isinstance(m, mixgb):
-                m.mw.data.fill_(0.5)
+                if (not m.noavg) and (not m.nomax):
+                    m.mw.data.fill_(0.5)
                 if m.b:
                     m.aw.data.fill_(0.5)
 
