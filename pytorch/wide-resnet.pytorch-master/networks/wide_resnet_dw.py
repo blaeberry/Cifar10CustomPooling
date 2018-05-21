@@ -22,15 +22,31 @@ def conv_init(m):
         init.constant(m.bias, 0)
 
 class wide_basic(nn.Module):
-    def __init__(self, in_planes, planes, dropout_rate, stride=1):
+    def __init__(self, in_planes, planes, dropout_rate, stride=1, mode=1):
         super(wide_basic, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
         if stride != 1: #or in_planes != planes
-            self.conv1 = nn.Sequential(
-                nn.Conv2d(in_planes, in_planes, kernel_size=3, padding=1, groups=in_planes, stride=stride),
-                nn.Conv2d(in_planes, planes, kernel_size=1, bias=True) #adding bias because no BN before
-                )
+            if mode == 1: # dw separable
+                self.conv1 = nn.Sequential(
+                    nn.Conv2d(in_planes, in_planes, kernel_size=3, padding=1, groups=in_planes, stride=stride, bias=True),
+                    nn.Conv2d(in_planes, planes, kernel_size=1, bias=True) #adding bias because no BN before
+                    )
+            elif mode == 2: # dw separable where planes added to dw
+                self.conv1 = nn.Sequential(
+                    nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, groups=in_planes, stride=stride, bias=True),
+                    nn.Conv2d(planes, planes, kernel_size=1, bias=True) #adding bias because no BN before
+                    )
+            elif mode == 3: # pw into dw
+                self.conv1 = nn.Sequential(
+                    nn.Conv2d(in_planes, planes, kernel_size=1, bias=True),
+                    nn.Conv2d(planes, planes, kernel_size=3, padding=1, groups=planes, stride=stride, bias=True)
+                    )
+            else: #pw into dw with planes added to dw
+                self.conv1 = nn.Sequential(
+                    nn.Conv2d(in_planes, in_planes, kernel_size=1, bias=True),
+                    nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, groups=in_planes, stride=stride, bias=True)
+                    )
         self.dropout = nn.Dropout(p=dropout_rate)
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, padding=1, bias=True)
@@ -49,7 +65,7 @@ class wide_basic(nn.Module):
         return out
 
 class Wide_ResNet_DW(nn.Module):
-    def __init__(self, depth, widen_factor, dropout_rate, num_classes):
+    def __init__(self, depth, widen_factor, dropout_rate, num_classes, mode):
         super(Wide_ResNet_DW, self).__init__()
         self.in_planes  = 16
 
@@ -61,18 +77,18 @@ class Wide_ResNet_DW(nn.Module):
         nStages = [16, 16*k, 32*k, 64*k]
 
         self.conv1 = conv3x3(3,nStages[0])
-        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1)
-        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2)
-        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2)
+        self.layer1 = self._wide_layer(wide_basic, nStages[1], n, dropout_rate, stride=1, mode)
+        self.layer2 = self._wide_layer(wide_basic, nStages[2], n, dropout_rate, stride=2, mode)
+        self.layer3 = self._wide_layer(wide_basic, nStages[3], n, dropout_rate, stride=2, mode)
         self.bn1 = nn.BatchNorm2d(nStages[3], momentum=0.9)
         self.linear = nn.Linear(nStages[3], num_classes)
 
-    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride):
+    def _wide_layer(self, block, planes, num_blocks, dropout_rate, stride, mode):
         strides = [stride] + [1]*(num_blocks-1)
         layers = []
 
         for stride in strides:
-            layers.append(block(self.in_planes, planes, dropout_rate, stride))
+            layers.append(block(self.in_planes, planes, dropout_rate, stride, mode))
             self.in_planes = planes
 
         return nn.Sequential(*layers)

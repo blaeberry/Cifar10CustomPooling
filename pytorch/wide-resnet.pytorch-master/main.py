@@ -37,6 +37,7 @@ parser.add_argument('--resbnr', action='store_true', help='apply bnr to residual
 parser.add_argument('--resbnr2', action='store_true', help='apply bnr to residual')
 parser.add_argument('--res1s', action='store_true', help='apply k=1 re1d to residuals')
 parser.add_argument('--resm', action='store_true', help='apply matching k re1d to residuals')
+parser.add_argument('--mode', default=1, type=int, help='1: dws, 2: dws 2 convs per g, 3: pw into dw')
 
 parser.add_argument('--nesterov', default=True, type=bool, help='nesterov momentum')
 parser.add_argument('--dataset', default='cifar10', type=str, help='dataset = [cifar10/cifar100]')
@@ -101,9 +102,9 @@ def getNetwork(args):
         file_name = 'wide-resnet-order-'+str(args.depth)+'x'+str(args.widen_factor) + \
                     '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
     elif (args.net_type == 'wide-resnet-dw'):
-        net = Wide_ResNet_DW(args.depth, args.widen_factor, args.dropout, num_classes)
+        net = Wide_ResNet_DW(args.depth, args.widen_factor, args.dropout, num_classes, args.mode)
         file_name = 'wide-resnet-order-'+str(args.depth)+'x'+str(args.widen_factor) + \
-                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)
+                    '-drop-'+str(args.dropout)+'-wd-'+str(args.wd)+'-nest-'+str(args.nesterov)+'-mode-'+str(args.mode)
     elif (args.net_type == 'wide-resnet-2d'):
         net = Wide_ResNet_2D(args.depth, args.widen_factor, args.dropout, num_classes)
         file_name = 'wide-resnet-2d-'+str(args.depth)+'x'+str(args.widen_factor) + \
