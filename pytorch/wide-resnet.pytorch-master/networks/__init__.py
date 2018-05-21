@@ -2,6 +2,7 @@ from .lenet import *
 from .vggnet import *
 from .resnet import *
 from .wide_resnet import *
+from .wide_resnet_dw import *
 from .wide_resnet_order import *
 from .wide_resnet_avg import *
 from .wide_resnet_2d_normal import *
