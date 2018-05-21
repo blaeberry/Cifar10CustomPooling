@@ -26,9 +26,9 @@ class wide_basic(nn.Module):
         super(wide_basic, self).__init__()
         self.bn1 = nn.BatchNorm2d(in_planes)
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=True)
-        if stride != 1 or in_planes != planes:
+        if stride != 1: #or in_planes != planes
             self.conv1 = nn.Sequential(
-                nn.Conv2d(in_planes, in_planes, kernel_size=3, padding=1, groups=in_planes, stride=2)
+                nn.Conv2d(in_planes, in_planes, kernel_size=3, padding=1, groups=in_planes, stride=stride),
                 nn.Conv2d(in_planes, planes, kernel_size=1, bias=True) #adding bias because no BN before
                 )
         self.dropout = nn.Dropout(p=dropout_rate)
@@ -51,7 +51,7 @@ class wide_basic(nn.Module):
 class Wide_ResNet_DW(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
         super(Wide_ResNet_DW, self).__init__()
-        self.  = 16
+        self.in_planes  = 16
 
         assert ((depth-4)%6 ==0), 'Wide-resnet depth should be 6n+4'
         n = (depth-4)/6
